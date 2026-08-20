@@ -21,4 +21,8 @@ public class Application
 
     // Navigation Property - Job
     public Job? Job { get; set; }
+
+    // One Application can have many Interview Rounds
+    public ICollection<InterviewRound> InterviewRounds { get; set; }
+        = new List<InterviewRound>();
 }

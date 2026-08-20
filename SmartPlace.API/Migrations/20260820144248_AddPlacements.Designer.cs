@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartPlace.API.Data;
 
@@ -11,9 +12,11 @@ using SmartPlace.API.Data;
 namespace SmartPlace.API.Migrations
 {
     [DbContext(typeof(SmartPlaceDbContext))]
-    partial class SmartPlaceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820144248_AddPlacements")]
+    partial class AddPlacements
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -456,43 +459,6 @@ namespace SmartPlace.API.Migrations
                     b.ToTable("Placements");
                 });
 
-            modelBuilder.Entity("SmartPlace.API.Models.Resume", b =>
-                {
-                    b.Property<int>("ResumeId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ResumeId"));
-
-                    b.Property<string>("ExtractedText")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsProcessed")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("StudentId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("ResumeId");
-
-                    b.HasIndex("StudentId")
-                        .IsUnique();
-
-                    b.ToTable("Resumes");
-                });
-
             modelBuilder.Entity("SmartPlace.API.Models.Skill", b =>
                 {
                     b.Property<int>("SkillId")
@@ -678,17 +644,6 @@ namespace SmartPlace.API.Migrations
                     b.Navigation("Student");
                 });
 
-            modelBuilder.Entity("SmartPlace.API.Models.Resume", b =>
-                {
-                    b.HasOne("SmartPlace.API.Models.Student", "Student")
-                        .WithOne("Resume")
-                        .HasForeignKey("SmartPlace.API.Models.Resume", "StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Student");
-                });
-
             modelBuilder.Entity("SmartPlace.API.Models.Student", b =>
                 {
                     b.HasOne("SmartPlace.API.Models.Department", "Department")
@@ -751,8 +706,6 @@ namespace SmartPlace.API.Migrations
                     b.Navigation("Applications");
 
                     b.Navigation("Placement");
-
-                    b.Navigation("Resume");
 
                     b.Navigation("StudentSkills");
                 });

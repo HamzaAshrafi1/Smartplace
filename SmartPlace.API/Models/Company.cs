@@ -19,4 +19,8 @@ public class Company
     // One company can post many jobs
     public ICollection<Job> Jobs { get; set; }
         = new List<Job>();
+
+    // One company can have many placed students
+    public ICollection<Placement> Placements { get; set; }
+        = new List<Placement>();
 }
