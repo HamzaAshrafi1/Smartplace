@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPlace.API.Data;
 using SmartPlace.API.Models;
@@ -7,6 +8,7 @@ namespace SmartPlace.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class JobsController : ControllerBase
 {
     private readonly SmartPlaceDbContext _context;
@@ -16,8 +18,14 @@ public class JobsController : ControllerBase
         _context = context;
     }
 
+    // --------------------------------------------------
+    // GET ALL JOBS
+    // All authenticated users
     // GET: api/Jobs
+    // --------------------------------------------------
+
     [HttpGet]
+    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
     public async Task<ActionResult<IEnumerable<Job>>> GetJobs()
     {
         var jobs = await _context.Jobs
@@ -28,8 +36,13 @@ public class JobsController : ControllerBase
         return Ok(jobs);
     }
 
+    // --------------------------------------------------
+    // GET JOB BY ID
     // GET: api/Jobs/1
+    // --------------------------------------------------
+
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
     public async Task<ActionResult<Job>> GetJob(int id)
     {
         var job = await _context.Jobs
@@ -47,9 +60,15 @@ public class JobsController : ControllerBase
         return Ok(job);
     }
 
+    // --------------------------------------------------
+    // GET JOBS BY COMPANY
     // GET: api/Jobs/company/1
+    // --------------------------------------------------
+
     [HttpGet("company/{companyId}")]
-    public async Task<ActionResult<IEnumerable<Job>>> GetJobsByCompany(int companyId)
+    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
+    public async Task<ActionResult<IEnumerable<Job>>> GetJobsByCompany(
+        int companyId)
     {
         var companyExists = await _context.Companies
             .AnyAsync(c => c.CompanyId == companyId);
@@ -71,8 +90,14 @@ public class JobsController : ControllerBase
         return Ok(jobs);
     }
 
+    // --------------------------------------------------
+    // CREATE JOB
+    // Recruiter
     // POST: api/Jobs
+    // --------------------------------------------------
+
     [HttpPost]
+    [Authorize(Roles = "Recruiter")]
     public async Task<ActionResult<Job>> CreateJob(Job job)
     {
         var company = await _context.Companies
@@ -86,7 +111,10 @@ public class JobsController : ControllerBase
             });
         }
 
-        if (company.ApprovalStatus.ToLower() != "approved")
+        if (!string.Equals(
+                company.ApprovalStatus,
+                "Approved",
+                StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(new
             {
@@ -127,23 +155,22 @@ public class JobsController : ControllerBase
         }
 
         if (job.ApplicationDeadline.HasValue &&
-            job.ApplicationDeadline.Value < DateTime.UtcNow)
+            job.ApplicationDeadline.Value <= DateTime.UtcNow)
         {
             return BadRequest(new
             {
-                message = "Application deadline cannot be in the past."
+                message = "Application deadline must be in the future."
             });
         }
 
         job.Title = job.Title.Trim();
         job.PostedDate = DateTime.UtcNow;
 
-        if (string.IsNullOrWhiteSpace(job.Status))
-        {
-            job.Status = "Pending";
-        }
+        // Recruiter creates job as Pending
+        job.Status = "Pending";
 
         _context.Jobs.Add(job);
+
         await _context.SaveChangesAsync();
 
         var createdJob = await _context.Jobs
@@ -153,23 +180,32 @@ public class JobsController : ControllerBase
         return CreatedAtAction(
             nameof(GetJob),
             new { id = createdJob.JobId },
-            createdJob
-        );
+            createdJob);
     }
 
+    // --------------------------------------------------
+    // UPDATE JOB DETAILS
+    // Recruiter / Admin / Placement Officer
     // PUT: api/Jobs/1
+    // --------------------------------------------------
+
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateJob(int id, Job job)
+    [Authorize(Roles = "Recruiter,Admin,PlacementOfficer")]
+    public async Task<IActionResult> UpdateJob(
+        int id,
+        Job job)
     {
         if (id != job.JobId)
         {
             return BadRequest(new
             {
-                message = "Job ID in URL does not match JobId in request body."
+                message =
+                    "Job ID in URL does not match JobId in request body."
             });
         }
 
-        var existingJob = await _context.Jobs.FindAsync(id);
+        var existingJob = await _context.Jobs
+            .FindAsync(id);
 
         if (existingJob == null)
         {
@@ -179,10 +215,10 @@ public class JobsController : ControllerBase
             });
         }
 
-        var companyExists = await _context.Companies
-            .AnyAsync(c => c.CompanyId == job.CompanyId);
+        var company = await _context.Companies
+            .FirstOrDefaultAsync(c => c.CompanyId == job.CompanyId);
 
-        if (!companyExists)
+        if (company == null)
         {
             return BadRequest(new
             {
@@ -190,11 +226,40 @@ public class JobsController : ControllerBase
             });
         }
 
+        if (!string.Equals(
+                company.ApprovalStatus,
+                "Approved",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Job must belong to an approved company."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(job.Title))
+        {
+            return BadRequest(new
+            {
+                message = "Job title is required."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(job.Description))
+        {
+            return BadRequest(new
+            {
+                message = "Job description is required."
+            });
+        }
+
         if (job.MinimumCGPA < 0 || job.MinimumCGPA > 10)
         {
             return BadRequest(new
             {
-                message = "Minimum CGPA must be between 0 and 10."
+                message =
+                    "Minimum CGPA must be between 0 and 10."
             });
         }
 
@@ -202,7 +267,18 @@ public class JobsController : ControllerBase
         {
             return BadRequest(new
             {
-                message = "Maximum backlogs cannot be negative."
+                message =
+                    "Maximum backlogs cannot be negative."
+            });
+        }
+
+        if (job.ApplicationDeadline.HasValue &&
+            job.ApplicationDeadline.Value <= DateTime.UtcNow)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Application deadline must be in the future."
             });
         }
 
@@ -214,17 +290,80 @@ public class JobsController : ControllerBase
         existingJob.GraduationYear = job.GraduationYear;
         existingJob.Location = job.Location;
         existingJob.EmploymentType = job.EmploymentType;
-        existingJob.ApplicationDeadline = job.ApplicationDeadline;
-        existingJob.Status = job.Status;
+        existingJob.ApplicationDeadline =
+            job.ApplicationDeadline;
         existingJob.CompanyId = job.CompanyId;
+
+        // Status is NOT changed here.
+        // It has its own secure endpoint.
 
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
+    // --------------------------------------------------
+    // UPDATE JOB STATUS
+    // Admin / Placement Officer
+    // PUT: api/Jobs/1/status
+    // --------------------------------------------------
+
+    [HttpPut("{id}/status")]
+    [Authorize(Roles = "Admin,PlacementOfficer")]
+    public async Task<IActionResult> UpdateJobStatus(
+        int id,
+        [FromBody] string status)
+    {
+        var job = await _context.Jobs
+            .FindAsync(id);
+
+        if (job == null)
+        {
+            return NotFound(new
+            {
+                message = "Job not found."
+            });
+        }
+
+        string[] allowedStatuses =
+        {
+            "Pending",
+            "Published",
+            "Closed",
+            "Rejected"
+        };
+
+        var validStatus = allowedStatuses
+            .FirstOrDefault(s =>
+                string.Equals(
+                    s,
+                    status,
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (validStatus == null)
+        {
+            return BadRequest(new
+            {
+                message = "Invalid job status.",
+                allowedStatuses
+            });
+        }
+
+        job.Status = validStatus;
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // --------------------------------------------------
+    // DELETE JOB
+    // Admin
     // DELETE: api/Jobs/1
+    // --------------------------------------------------
+
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteJob(int id)
     {
         var job = await _context.Jobs
@@ -243,11 +382,13 @@ public class JobsController : ControllerBase
         {
             return BadRequest(new
             {
-                message = "Cannot delete job because applications are associated with it."
+                message =
+                    "Cannot delete job because applications are associated with it."
             });
         }
 
         _context.Jobs.Remove(job);
+
         await _context.SaveChangesAsync();
 
         return NoContent();

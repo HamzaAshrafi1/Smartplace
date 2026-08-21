@@ -521,6 +521,9 @@ namespace SmartPlace.API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("StudentId"));
 
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int>("Backlogs")
                         .HasColumnType("int");
 
@@ -543,6 +546,10 @@ namespace SmartPlace.API.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("StudentId");
+
+                    b.HasIndex("ApplicationUserId")
+                        .IsUnique()
+                        .HasFilter("[ApplicationUserId] IS NOT NULL");
 
                     b.HasIndex("DepartmentId");
 
@@ -691,11 +698,18 @@ namespace SmartPlace.API.Migrations
 
             modelBuilder.Entity("SmartPlace.API.Models.Student", b =>
                 {
+                    b.HasOne("SmartPlace.API.Models.ApplicationUser", "ApplicationUser")
+                        .WithOne("Student")
+                        .HasForeignKey("SmartPlace.API.Models.Student", "ApplicationUserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("SmartPlace.API.Models.Department", "Department")
                         .WithMany("Students")
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ApplicationUser");
 
                     b.Navigation("Department");
                 });
@@ -722,6 +736,11 @@ namespace SmartPlace.API.Migrations
             modelBuilder.Entity("SmartPlace.API.Models.Application", b =>
                 {
                     b.Navigation("InterviewRounds");
+                });
+
+            modelBuilder.Entity("SmartPlace.API.Models.ApplicationUser", b =>
+                {
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("SmartPlace.API.Models.Company", b =>

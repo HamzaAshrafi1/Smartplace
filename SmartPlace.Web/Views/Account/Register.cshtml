@@ -1,0 +1,150 @@
+﻿@model SmartPlace.Web.Services.RegisterRequest
+
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+
+            <div class="card shadow border-0">
+                <div class="card-body p-4">
+
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold">
+                            SmartPlace
+                        </h2>
+
+                        <p class="text-muted mb-0">
+                            Create your account
+                        </p>
+                    </div>
+
+                    @if (ViewBag.Error != null)
+                    {
+                        <div class="alert alert-danger">
+                            @ViewBag.Error
+                        </div>
+                    }
+
+                    <form asp-action="Register"
+                          asp-controller="Account"
+                          method="post">
+
+                        <div class="mb-3">
+
+                            <label asp-for="FullName"
+                                   class="form-label">
+                                Full Name
+                            </label>
+
+                            <input asp-for="FullName"
+                                   class="form-control"
+                                   placeholder="Enter your full name" />
+
+                            <span asp-validation-for="FullName"
+                                  class="text-danger">
+                            </span>
+
+                        </div>
+
+                        <div class="mb-3">
+
+                            <label asp-for="Email"
+                                   class="form-label">
+                                Email
+                            </label>
+
+                            <input asp-for="Email"
+                                   class="form-control"
+                                   placeholder="Enter your email" />
+
+                            <span asp-validation-for="Email"
+                                  class="text-danger">
+                            </span>
+
+                        </div>
+
+                        <div class="mb-3">
+
+                            <label asp-for="Password"
+                                   class="form-label">
+                                Password
+                            </label>
+
+                            <input asp-for="Password"
+                                   type="password"
+                                   class="form-control"
+                                   placeholder="Create a password" />
+
+                            <small class="text-muted">
+                                Minimum 6 characters with uppercase,
+                                lowercase and number.
+                            </small>
+
+                            <span asp-validation-for="Password"
+                                  class="text-danger">
+                            </span>
+
+                        </div>
+
+                        <div class="mb-4">
+
+                            <label asp-for="Role"
+                                   class="form-label">
+                                Register As
+                            </label>
+
+                            <select asp-for="Role"
+                                    class="form-select">
+
+                                <option value="">
+                                    Select account type
+                                </option>
+
+                                <option value="Student">
+                                    Student
+                                </option>
+
+                                <option value="Recruiter">
+                                    Recruiter
+                                </option>
+
+                            </select>
+
+                            <span asp-validation-for="Role"
+                                  class="text-danger">
+                            </span>
+
+                        </div>
+
+                        <button type="submit"
+                                class="btn btn-primary w-100">
+                            Create Account
+                        </button>
+
+                    </form>
+
+                    <hr class="my-4" />
+
+                    <div class="text-center">
+
+                        <span class="text-muted">
+                            Already have an account?
+                        </span>
+
+                        <a asp-controller="Account"
+                           asp-action="Login"
+                           class="text-decoration-none">
+                            Login
+                        </a>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

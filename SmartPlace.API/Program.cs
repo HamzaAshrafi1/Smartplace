@@ -1,47 +1,102 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using SmartPlace.API.Data;
 using SmartPlace.API.Models;
+using SmartPlace.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Controllers
-builder.Services.AddControllers();
+// --------------------------------------------------
+// CONTROLLERS + JSON CYCLE HANDLING
+// --------------------------------------------------
 
-// Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// Database
-builder.Services.AddDbContext<SmartPlaceDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Identity
 builder.Services
-    .AddIdentity<ApplicationUser, IdentityRole>(options =>
+    .AddControllers()
+    .AddJsonOptions(options =>
     {
-        options.Password.RequireDigit = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequiredLength = 6;
+        options.JsonSerializerOptions.ReferenceHandler =
+            ReferenceHandler.IgnoreCycles;
+    });
 
-        options.User.RequireUniqueEmail = true;
-    })
+// --------------------------------------------------
+// SWAGGER + JWT AUTHORIZATION
+// --------------------------------------------------
+
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "Enter your JWT token."
+        });
+
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(
+                "Bearer",
+                document)] = []
+        });
+});
+
+// --------------------------------------------------
+// DATABASE
+// --------------------------------------------------
+
+builder.Services.AddDbContext<SmartPlaceDbContext>(
+    options =>
+        options.UseSqlServer(
+            builder.Configuration
+                .GetConnectionString("DefaultConnection")));
+
+// --------------------------------------------------
+// IDENTITY
+// --------------------------------------------------
+
+builder.Services
+    .AddIdentity<ApplicationUser, IdentityRole>(
+        options =>
+        {
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequiredLength = 6;
+
+            options.User.RequireUniqueEmail = true;
+        })
     .AddEntityFrameworkStores<SmartPlaceDbContext>()
     .AddDefaultTokenProviders();
 
-// JWT
+// --------------------------------------------------
+// HYBRID AI SERVICES
+// --------------------------------------------------
+
+builder.Services.AddScoped<SkillExtractionService>();
+builder.Services.AddScoped<JobMatchingService>();
+builder.Services.AddScoped<OpenAIAnalysisService>();
+
+// --------------------------------------------------
+// JWT AUTHENTICATION
+// --------------------------------------------------
+
 var jwtKey = builder.Configuration["Jwt:Key"];
 
 if (string.IsNullOrWhiteSpace(jwtKey))
 {
     throw new InvalidOperationException(
-        "JWT key is missing from appsettings.json.");
+        "JWT key is missing from configuration.");
 }
 
 builder.Services
@@ -79,13 +134,21 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// --------------------------------------------------
+// BUILD APPLICATION
+// --------------------------------------------------
+
 var app = builder.Build();
 
-// Create default roles automatically
+// --------------------------------------------------
+// CREATE DEFAULT ROLES
+// --------------------------------------------------
+
 using (var scope = app.Services.CreateScope())
 {
     var roleManager =
-        scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole>>();
 
     string[] roles =
     {
@@ -105,7 +168,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// HTTP pipeline
+// --------------------------------------------------
+// HTTP PIPELINE
+// --------------------------------------------------
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -115,7 +181,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
-
 app.UseAuthorization();
 
 app.MapControllers();

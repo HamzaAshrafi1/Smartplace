@@ -14,22 +14,47 @@ public class Student
 
     public int GraduationYear { get; set; }
 
-    // Department
+    // --------------------------------------------------
+    // IDENTITY USER LINK
+    // --------------------------------------------------
+
+    // Nullable because older students may not yet
+    // be linked to an Identity account.
+    public string? ApplicationUserId { get; set; }
+
+    public ApplicationUser? ApplicationUser { get; set; }
+
+    // --------------------------------------------------
+    // DEPARTMENT
+    // --------------------------------------------------
+
     public int DepartmentId { get; set; }
 
     public Department? Department { get; set; }
 
-    // Skills
+    // --------------------------------------------------
+    // SKILLS
+    // --------------------------------------------------
+
     public ICollection<StudentSkill> StudentSkills { get; set; }
         = new List<StudentSkill>();
 
-    // Applications
+    // --------------------------------------------------
+    // APPLICATIONS
+    // --------------------------------------------------
+
     public ICollection<Application> Applications { get; set; }
         = new List<Application>();
 
-    // Placement
+    // --------------------------------------------------
+    // PLACEMENT
+    // --------------------------------------------------
+
     public Placement? Placement { get; set; }
 
-    // Resume
+    // --------------------------------------------------
+    // RESUME
+    // --------------------------------------------------
+
     public Resume? Resume { get; set; }
 }

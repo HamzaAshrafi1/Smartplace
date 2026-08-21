@@ -1,6 +1,7 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -23,35 +24,88 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
+    // --------------------------------------------------
+    // REGISTER
+    // Public registration is allowed only for:
+    // Student and Recruiter
     // POST: api/Auth/register
+    // --------------------------------------------------
+
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(
         [FromBody] RegisterDto model)
     {
+        if (string.IsNullOrWhiteSpace(model.FullName))
+        {
+            return BadRequest(new
+            {
+                message = "Full name is required."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Email))
+        {
+            return BadRequest(new
+            {
+                message = "Email is required."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Password))
+        {
+            return BadRequest(new
+            {
+                message = "Password is required."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Role))
+        {
+            return BadRequest(new
+            {
+                message = "Role is required."
+            });
+        }
+
+        model.FullName = model.FullName.Trim();
+
+        model.Email =
+            model.Email.Trim().ToLowerInvariant();
+
+        // Only these roles can self-register.
+        string[] publicRoles =
+        {
+            "Student",
+            "Recruiter"
+        };
+
+        var normalizedRole =
+            publicRoles.FirstOrDefault(role =>
+                string.Equals(
+                    role,
+                    model.Role.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (normalizedRole == null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Public registration is allowed only for Student or Recruiter."
+            });
+        }
+
         var userExists =
-            await _userManager.FindByEmailAsync(model.Email);
+            await _userManager.FindByEmailAsync(
+                model.Email);
 
         if (userExists != null)
         {
             return BadRequest(new
             {
-                message = "User already exists."
-            });
-        }
-
-        var validRoles = new[]
-        {
-            "Admin",
-            "Student",
-            "Recruiter",
-            "PlacementOfficer"
-        };
-
-        if (!validRoles.Contains(model.Role))
-        {
-            return BadRequest(new
-            {
-                message = "Invalid role."
+                message =
+                    "A user with this email already exists."
             });
         }
 
@@ -69,33 +123,73 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
         {
-            return BadRequest(result.Errors);
+            return BadRequest(new
+            {
+                message = "Registration failed.",
+                errors = result.Errors.Select(e =>
+                    e.Description)
+            });
         }
 
-        await _userManager.AddToRoleAsync(
-            user,
-            model.Role);
+        var roleResult =
+            await _userManager.AddToRoleAsync(
+                user,
+                normalizedRole);
+
+        if (!roleResult.Succeeded)
+        {
+            // Remove user if role assignment fails
+            await _userManager.DeleteAsync(user);
+
+            return BadRequest(new
+            {
+                message =
+                    "Registration failed while assigning user role.",
+                errors = roleResult.Errors.Select(e =>
+                    e.Description)
+            });
+        }
 
         return Ok(new
         {
-            message = "Registration successful."
+            message = "Registration successful.",
+            role = normalizedRole
         });
     }
 
+    // --------------------------------------------------
+    // LOGIN
     // POST: api/Auth/login
+    // --------------------------------------------------
+
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         [FromBody] LoginDto model)
     {
+        if (string.IsNullOrWhiteSpace(model.Email) ||
+            string.IsNullOrWhiteSpace(model.Password))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Email and password are required."
+            });
+        }
+
+        var email =
+            model.Email.Trim().ToLowerInvariant();
+
         var user =
             await _userManager.FindByEmailAsync(
-                model.Email);
+                email);
 
         if (user == null)
         {
             return Unauthorized(new
             {
-                message = "Invalid email or password."
+                message =
+                    "Invalid email or password."
             });
         }
 
@@ -108,7 +202,8 @@ public class AuthController : ControllerBase
         {
             return Unauthorized(new
             {
-                message = "Invalid email or password."
+                message =
+                    "Invalid email or password."
             });
         }
 
@@ -117,8 +212,17 @@ public class AuthController : ControllerBase
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Name, user.FullName),
-            new(ClaimTypes.Email, user.Email!)
+            new(
+                ClaimTypes.NameIdentifier,
+                user.Id),
+
+            new(
+                ClaimTypes.Name,
+                user.FullName),
+
+            new(
+                ClaimTypes.Email,
+                user.Email ?? string.Empty)
         };
 
         foreach (var role in roles)
@@ -129,10 +233,32 @@ public class AuthController : ControllerBase
                     role));
         }
 
+        var jwtKey =
+            _configuration["Jwt:Key"];
+
+        var jwtIssuer =
+            _configuration["Jwt:Issuer"];
+
+        var jwtAudience =
+            _configuration["Jwt:Audience"];
+
+        if (string.IsNullOrWhiteSpace(jwtKey) ||
+            string.IsNullOrWhiteSpace(jwtIssuer) ||
+            string.IsNullOrWhiteSpace(jwtAudience))
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "JWT configuration is incomplete."
+                });
+        }
+
         var key =
             new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(
-                    _configuration["Jwt:Key"]!));
+                    jwtKey));
 
         var credentials =
             new SigningCredentials(
@@ -141,27 +267,30 @@ public class AuthController : ControllerBase
 
         var token =
             new JwtSecurityToken(
-                issuer:
-                    _configuration["Jwt:Issuer"],
-
-                audience:
-                    _configuration["Jwt:Audience"],
-
+                issuer: jwtIssuer,
+                audience: jwtAudience,
                 claims: claims,
+                expires: DateTime.UtcNow.AddHours(2),
+                signingCredentials: credentials);
 
-                expires:
-                    DateTime.Now.AddHours(2),
-
-                signingCredentials:
-                    credentials);
+        var tokenString =
+            new JwtSecurityTokenHandler()
+                .WriteToken(token);
 
         return Ok(new
         {
-            token =
-                new JwtSecurityTokenHandler()
-                    .WriteToken(token),
+            token = tokenString,
 
-            roles
+            expiresAt =
+                token.ValidTo,
+
+            user = new
+            {
+                id = user.Id,
+                user.FullName,
+                user.Email,
+                roles
+            }
         });
     }
 }

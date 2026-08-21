@@ -1,0 +1,241 @@
+﻿@model SmartPlace.Web.Services.JobRecommendationResponse
+
+@{
+    ViewData["Title"] = "AI Job Recommendations";
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">
+                AI Job Recommendations
+            </h2>
+
+            <p class="text-muted mb-0">
+                Jobs ranked using your skills and academic eligibility.
+            </p>
+        </div>
+
+        <a asp-controller="StudentDashboard"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            Back to Dashboard
+        </a>
+
+    </div>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-warning">
+            @ViewBag.Error
+        </div>
+    }
+
+    @if (Model.Recommendations != null &&
+         Model.Recommendations.Count > 0)
+    {
+        <div class="mb-4">
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        Your Skills
+                    </h5>
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+
+                        @foreach (var skill in Model.StudentSkills)
+                        {
+                            <span class="badge bg-secondary">
+                                @skill
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="row g-4">
+
+            @foreach (var job in Model.Recommendations)
+            {
+                <div class="col-lg-6">
+
+                    <div class="card border-0 shadow-sm h-100">
+
+                        <div class="card-body p-4">
+
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+
+                                <div>
+
+                                    <h4 class="fw-bold mb-1">
+                                        @job.JobTitle
+                                    </h4>
+
+                                    <div class="text-muted">
+                                        @(job.Company ?? "Company")
+                                    </div>
+
+                                </div>
+
+                                @if (job.AcademicallyEligible)
+                                {
+                                    <span class="badge bg-success">
+                                        Eligible
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">
+                                        Not Eligible
+                                    </span>
+                                }
+
+                            </div>
+
+
+                            <div class="row mb-3">
+
+                                <div class="col-6">
+
+                                    <small class="text-muted">
+                                        Match Score
+                                    </small>
+
+                                    <div class="fs-3 fw-bold">
+                                        @job.MatchPercentage%
+                                    </div>
+
+                                </div>
+
+                                <div class="col-6">
+
+                                    <small class="text-muted">
+                                        Package
+                                    </small>
+
+                                    <div class="fw-bold mt-1">
+                                        @job.Package
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="progress mb-4"
+                                 style="height: 10px;">
+
+                                <div class="progress-bar"
+                                     role="progressbar"
+                                     style="width: @job.MatchPercentage%">
+                                </div>
+
+                            </div>
+
+
+                            <div class="mb-3">
+
+                                <strong>
+                                    Recommendation
+                                </strong>
+
+                                <div class="mt-1">
+                                    @job.Recommendation
+                                </div>
+
+                            </div>
+
+
+                            <div class="mb-3">
+
+                                <strong>
+                                    Matching Skills
+                                </strong>
+
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+
+                                    @if (job.MatchingSkills.Count > 0)
+                                    {
+                                        @foreach (var skill in job.MatchingSkills)
+                                        {
+                                            <span class="badge bg-success">
+                                                @skill
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">
+                                            None
+                                        </span>
+                                    }
+
+                                </div>
+
+                            </div>
+
+
+                            <div>
+
+                                <strong>
+                                    Missing Skills
+                                </strong>
+
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+
+                                    @if (job.MissingSkills.Count > 0)
+                                    {
+                                        @foreach (var skill in job.MissingSkills)
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                @skill
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">
+                                            No major skill gaps
+                                        </span>
+                                    }
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+
+                <h5 class="text-muted">
+                    No job recommendations available
+                </h5>
+
+                <p class="text-muted mb-0">
+                    Published jobs will appear here once available.
+                </p>
+
+            </div>
+        </div>
+    }
+
+</div>

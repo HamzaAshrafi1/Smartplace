@@ -1,0 +1,280 @@
+﻿@model SmartPlace.Web.Services.StudentProfile
+
+@{
+    ViewData["Title"] = "Student Dashboard";
+}
+
+<div class="container py-4">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- Dashboard Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">
+                Student Dashboard
+            </h2>
+
+            <p class="text-muted mb-0">
+                Welcome back, @Model.FullName
+            </p>
+        </div>
+
+        <a asp-controller="StudentDashboard"
+           asp-action="CompleteProfile"
+           class="btn btn-outline-primary">
+            Edit Profile
+        </a>
+
+    </div>
+
+
+    <!-- Academic Information -->
+    <div class="row g-3 mb-4">
+
+        <!-- CGPA -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <div class="text-muted small">
+                        CGPA
+                    </div>
+
+                    <div class="fs-3 fw-bold">
+                        @Model.CGPA
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Backlogs -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <div class="text-muted small">
+                        Backlogs
+                    </div>
+
+                    <div class="fs-3 fw-bold">
+                        @Model.Backlogs
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Graduation Year -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <div class="text-muted small">
+                        Graduation
+                    </div>
+
+                    <div class="fs-3 fw-bold">
+                        @Model.GraduationYear
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Department -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <div class="text-muted small">
+                        Department
+                    </div>
+
+                    <div class="fw-bold mt-2">
+                        @(Model.Department ?? "Not Assigned")
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- Student Features -->
+    <div class="row g-4">
+
+        <!-- Resume & Skills -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        Resume & Skills
+                    </h5>
+
+                    <p class="text-muted">
+                        Upload your resume and let SmartPlace
+                        extract your skills automatically.
+                    </p>
+
+                    <a asp-controller="StudentDashboard"
+                       asp-action="Resume"
+                       class="btn btn-primary">
+                        Manage Resume
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- AI Job Recommendations -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        AI Job Recommendations
+                    </h5>
+
+                    <p class="text-muted">
+                        Discover jobs ranked using your
+                        skills and academic eligibility.
+                    </p>
+
+                    <a asp-controller="StudentDashboard"
+                       asp-action="Recommendations"
+                       class="btn btn-primary">
+                        Recommended Jobs
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Applications -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        Applications
+                    </h5>
+
+                    <p class="text-muted">
+                        Track your submitted job
+                        applications and current status.
+                    </p>
+
+                    <a asp-controller="StudentDashboard"
+                       asp-action="MyApplications"
+                       class="btn btn-outline-primary">
+                        My Applications
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Interviews -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        Interviews
+                    </h5>
+
+                    <p class="text-muted">
+                        Check upcoming interview rounds
+                        and results.
+                    </p>
+
+                    <a href="#"
+                       class="btn btn-outline-primary">
+                        Interviews
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Placement -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        Placement Status
+                    </h5>
+
+                    <p class="text-muted">
+                        View your final placement and
+                        joining information.
+                    </p>
+
+                    <a href="#"
+                       class="btn btn-outline-primary">
+                        Placement
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Skills -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        My Skills
+                    </h5>
+
+                    @if (Model.Skills != null && Model.Skills.Count > 0)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+
+                            @foreach (var skill in Model.Skills)
+                            {
+                                <span class="badge bg-secondary">
+                                    @skill
+                                </span>
+                            }
+
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">
+                            Upload a resume to extract skills.
+                        </p>
+                    }
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>

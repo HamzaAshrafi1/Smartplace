@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPlace.API.Data;
 using SmartPlace.API.Models;
@@ -7,6 +8,7 @@ namespace SmartPlace.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SkillsController : ControllerBase
 {
     private readonly SmartPlaceDbContext _context;
@@ -16,8 +18,14 @@ public class SkillsController : ControllerBase
         _context = context;
     }
 
+    // --------------------------------------------------
+    // GET ALL SKILLS
+    // All authenticated users
     // GET: api/Skills
+    // --------------------------------------------------
+
     [HttpGet]
+    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
     public async Task<ActionResult<IEnumerable<Skill>>> GetSkills()
     {
         var skills = await _context.Skills
@@ -27,8 +35,14 @@ public class SkillsController : ControllerBase
         return Ok(skills);
     }
 
+    // --------------------------------------------------
+    // GET SKILL BY ID
+    // All authenticated users
     // GET: api/Skills/1
+    // --------------------------------------------------
+
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
     public async Task<ActionResult<Skill>> GetSkill(int id)
     {
         var skill = await _context.Skills
@@ -45,9 +59,16 @@ public class SkillsController : ControllerBase
         return Ok(skill);
     }
 
+    // --------------------------------------------------
+    // CREATE SKILL
+    // Admin / Placement Officer
     // POST: api/Skills
+    // --------------------------------------------------
+
     [HttpPost]
-    public async Task<ActionResult<Skill>> CreateSkill(Skill skill)
+    [Authorize(Roles = "Admin,PlacementOfficer")]
+    public async Task<ActionResult<Skill>> CreateSkill(
+        Skill skill)
     {
         if (string.IsNullOrWhiteSpace(skill.Name))
         {
@@ -57,8 +78,12 @@ public class SkillsController : ControllerBase
             });
         }
 
+        skill.Name = skill.Name.Trim();
+
         var exists = await _context.Skills
-            .AnyAsync(s => s.Name.ToLower() == skill.Name.ToLower());
+            .AnyAsync(s =>
+                s.Name.ToLower() ==
+                skill.Name.ToLower());
 
         if (exists)
         {
@@ -68,37 +93,37 @@ public class SkillsController : ControllerBase
             });
         }
 
-        skill.Name = skill.Name.Trim();
-
         _context.Skills.Add(skill);
+
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(
             nameof(GetSkill),
-            new { id = skill.SkillId },
-            skill
-        );
+            new
+            {
+                id = skill.SkillId
+            },
+            skill);
     }
 
+    // --------------------------------------------------
+    // UPDATE SKILL
+    // Admin / Placement Officer
     // PUT: api/Skills/1
+    // --------------------------------------------------
+
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateSkill(int id, Skill skill)
+    [Authorize(Roles = "Admin,PlacementOfficer")]
+    public async Task<IActionResult> UpdateSkill(
+        int id,
+        Skill skill)
     {
         if (id != skill.SkillId)
         {
             return BadRequest(new
             {
-                message = "Skill ID in URL does not match SkillId in request body."
-            });
-        }
-
-        var existingSkill = await _context.Skills.FindAsync(id);
-
-        if (existingSkill == null)
-        {
-            return NotFound(new
-            {
-                message = "Skill not found."
+                message =
+                    "Skill ID in URL does not match SkillId in request body."
             });
         }
 
@@ -110,33 +135,56 @@ public class SkillsController : ControllerBase
             });
         }
 
-        var duplicateExists = await _context.Skills
-            .AnyAsync(s =>
-                s.SkillId != id &&
-                s.Name.ToLower() == skill.Name.ToLower());
+        var existingSkill =
+            await _context.Skills.FindAsync(id);
+
+        if (existingSkill == null)
+        {
+            return NotFound(new
+            {
+                message = "Skill not found."
+            });
+        }
+
+        skill.Name = skill.Name.Trim();
+
+        var duplicateExists =
+            await _context.Skills
+                .AnyAsync(s =>
+                    s.SkillId != id &&
+                    s.Name.ToLower() ==
+                    skill.Name.ToLower());
 
         if (duplicateExists)
         {
             return BadRequest(new
             {
-                message = "Another skill with this name already exists."
+                message =
+                    "Another skill with this name already exists."
             });
         }
 
-        existingSkill.Name = skill.Name.Trim();
+        existingSkill.Name = skill.Name;
 
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
+    // --------------------------------------------------
+    // DELETE SKILL
+    // Admin only
     // DELETE: api/Skills/1
+    // --------------------------------------------------
+
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteSkill(int id)
     {
         var skill = await _context.Skills
             .Include(s => s.StudentSkills)
-            .FirstOrDefaultAsync(s => s.SkillId == id);
+            .FirstOrDefaultAsync(
+                s => s.SkillId == id);
 
         if (skill == null)
         {
@@ -150,11 +198,13 @@ public class SkillsController : ControllerBase
         {
             return BadRequest(new
             {
-                message = "Cannot delete skill because it is assigned to one or more students."
+                message =
+                    "Cannot delete skill because it is assigned to one or more students."
             });
         }
 
         _context.Skills.Remove(skill);
+
         await _context.SaveChangesAsync();
 
         return NoContent();

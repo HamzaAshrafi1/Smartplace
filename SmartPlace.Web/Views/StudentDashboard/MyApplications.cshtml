@@ -1,0 +1,202 @@
+﻿@model List<SmartPlace.Web.Services.StudentApplicationItem>
+
+@{
+    ViewData["Title"] = "My Applications";
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">
+                My Applications
+            </h2>
+
+            <p class="text-muted mb-0">
+                Track your submitted applications and their current status.
+            </p>
+        </div>
+
+        <a asp-controller="StudentDashboard"
+           asp-action="Recommendations"
+           class="btn btn-outline-primary">
+            Find More Jobs
+        </a>
+
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (Model != null && Model.Count > 0)
+    {
+        <div class="row g-4">
+
+            @foreach (var application in Model)
+            {
+                <div class="col-lg-6">
+
+                    <div class="card border-0 shadow-sm h-100">
+
+                        <div class="card-body p-4">
+
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+
+                                <div>
+                                    <h4 class="fw-bold mb-1">
+                                        @(application.Job?.Title ?? "Job")
+                                    </h4>
+
+                                    <div class="text-muted">
+                                        @(application.Job?.Company?.Name ?? "Company")
+                                    </div>
+                                </div>
+
+                                @{
+                                    var status = application.Status ?? "Applied";
+                                }
+
+                                @if (status.Equals(
+                                    "Selected",
+                                    StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-success">
+                                        @status
+                                    </span>
+                                }
+                                else if (status.Equals(
+                                    "Rejected",
+                                    StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-danger">
+                                        @status
+                                    </span>
+                                }
+                                else if (status.Equals(
+                                    "Shortlisted",
+                                    StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-info text-dark">
+                                        @status
+                                    </span>
+                                }
+                                else if (status.Equals(
+                                    "Interview",
+                                    StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-warning text-dark">
+                                        @status
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-primary">
+                                        @status
+                                    </span>
+                                }
+
+                            </div>
+
+                            <div class="row g-3 mb-3">
+
+                                <div class="col-sm-6">
+
+                                    <small class="text-muted">
+                                        Location
+                                    </small>
+
+                                    <div class="fw-semibold">
+                                        @(application.Job?.Location
+                                            ?? "Not specified")
+                                    </div>
+
+                                </div>
+
+                                <div class="col-sm-6">
+
+                                    <small class="text-muted">
+                                        Package
+                                    </small>
+
+                                    <div class="fw-semibold">
+                                        @(application.Job?.Package ?? 0)
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div class="mb-3">
+
+                                <small class="text-muted">
+                                    Employment Type
+                                </small>
+
+                                <div class="fw-semibold">
+                                    @(application.Job?.EmploymentType
+                                        ?? "Not specified")
+                                </div>
+
+                            </div>
+
+                            <div>
+
+                                <small class="text-muted">
+                                    Applied On
+                                </small>
+
+                                <div class="fw-semibold">
+                                    @application.AppliedDate
+                                    .ToLocalTime()
+                                    .ToString("dd MMM yyyy, hh:mm tt")
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+
+            <div class="card-body text-center py-5">
+
+                <h5 class="fw-bold">
+                    No applications yet
+                </h5>
+
+                <p class="text-muted">
+                    Explore your AI-recommended jobs and submit your first application.
+                </p>
+
+                <a asp-controller="StudentDashboard"
+                   asp-action="Recommendations"
+                   class="btn btn-primary">
+                    View Recommended Jobs
+                </a>
+
+            </div>
+
+        </div>
+    }
+
+</div>

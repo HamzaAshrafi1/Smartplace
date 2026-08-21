@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="SmartPlace.API/SmartPlace.API.csproj" />
+  <Project Path="SmartPlace.Web/SmartPlace.Web.csproj" Id="6efc92ce-886f-469b-8471-d423687e3a9f" />
 </Solution>
