@@ -1,12 +1,16 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>@ViewData["Title"] - SmartPlace</title>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0" />
 
-    <script type="importmap"></script>
+    <title>
+        @ViewData["Title"] - SmartPlace
+    </title>
 
     <link rel="stylesheet"
           href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -18,125 +22,243 @@
     <link rel="stylesheet"
           href="~/SmartPlace.Web.styles.css"
           asp-append-version="true" />
+
 </head>
 
 <body>
 
+    @{
+        var token =
+            Context.Session.GetString("JWToken");
+
+        var role =
+            Context.Session.GetString("UserRole");
+
+        var name =
+            Context.Session.GetString("UserName");
+
+        string dashboardController =
+            role switch
+            {
+                "Student" =>
+                    "StudentDashboard",
+
+                "Recruiter" =>
+                    "RecruiterDashboard",
+
+                "PlacementOfficer" =>
+                    "PlacementDashboard",
+
+                "Admin" =>
+                    "AdminDashboard",
+
+                _ =>
+                    "Home"
+            };
+    }
+
+
     <header>
-        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm">
-            <div class="container-fluid">
+
+        <nav class="navbar navbar-expand-lg
+            navbar-light bg-white
+            border-bottom shadow-sm">
+
+            <div class="container">
 
                 <a class="navbar-brand fw-bold"
-                   asp-controller="Account"
-                   asp-action="Login">
+                   asp-controller="@dashboardController"
+                   asp-action="Index">
                     SmartPlace
                 </a>
+
 
                 <button class="navbar-toggler"
                         type="button"
                         data-bs-toggle="collapse"
-                        data-bs-target=".navbar-collapse"
-                        aria-controls="navbarSupportedContent"
-                        aria-expanded="false"
-                        aria-label="Toggle navigation">
+                        data-bs-target="#mainNav">
 
-                    <span class="navbar-toggler-icon"></span>
+                    <span class="navbar-toggler-icon">
+                    </span>
 
                 </button>
 
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
 
-                    <ul class="navbar-nav flex-grow-1">
+                <div id="mainNav"
+                     class="collapse navbar-collapse">
 
-                        <li class="nav-item">
-                            <a class="nav-link text-dark"
-                               asp-controller="Home"
-                               asp-action="Index">
-                                Home
-                            </a>
-                        </li>
 
-                    </ul>
-
-                    <ul class="navbar-nav">
-
-                        @if (Context.Session.GetString("JWToken") == null)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark"
-                                   asp-controller="Account"
-                                   asp-action="Login">
-                                    Login
-                                </a>
-                            </li>
+                    @if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        <ul class="navbar-nav me-auto">
 
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
-                                   asp-controller="Account"
-                                   asp-action="Register">
-                                    Register
+
+                                <a class="nav-link"
+                                   asp-controller="@dashboardController"
+                                   asp-action="Index">
+                                    Dashboard
                                 </a>
+
                             </li>
-                        }
-                        else
-                        {
-                            <li class="nav-item d-flex align-items-center me-3">
+
+
+                            @if (role == "Student")
+                            {
+                                <li class="nav-item">
+
+                                    <a class="nav-link"
+                                       asp-controller="StudentDashboard"
+                                       asp-action="Jobs">
+                                        Jobs
+                                    </a>
+
+                                </li>
+
+                                <li class="nav-item">
+
+                                    <a class="nav-link"
+                                       asp-controller="StudentDashboard"
+                                       asp-action="MyApplications">
+                                        Applications
+                                    </a>
+
+                                </li>
+
+                                <li class="nav-item">
+
+                                    <a class="nav-link"
+                                       asp-controller="StudentDashboard"
+                                       asp-action="Interviews">
+                                        Interviews
+                                    </a>
+
+                                </li>
+
+                                <li class="nav-item">
+
+                                    <a class="nav-link"
+                                       asp-controller="StudentDashboard"
+                                       asp-action="Placement">
+                                        Placement
+                                    </a>
+
+                                </li>
+                            }
+
+
+                            @if (role == "Admin")
+                            {
+                                <li class="nav-item">
+
+                                    <a class="nav-link"
+                                       asp-controller="AdminDashboard"
+                                       asp-action="Users">
+                                        User Management
+                                    </a>
+
+                                </li>
+                            }
+
+                        </ul>
+
+
+                        <ul class="navbar-nav ms-auto">
+
+                            <li class="nav-item
+                                d-flex align-items-center me-3">
+
                                 <span class="text-muted">
-                                    Hello,
-                                    @Context.Session.GetString("UserName")
+
+                                    @name
+                                    ·
+                                    @role
+
                                 </span>
+
                             </li>
 
                             <li class="nav-item">
+
                                 <a class="nav-link text-danger"
                                    asp-controller="Account"
                                    asp-action="Logout">
                                     Logout
                                 </a>
-                            </li>
-                        }
 
-                    </ul>
+                            </li>
+
+                        </ul>
+                    }
+                    else
+                    {
+                        <ul class="navbar-nav ms-auto">
+
+                            <li class="nav-item">
+
+                                <a class="nav-link"
+                                   asp-controller="Account"
+                                   asp-action="Login">
+                                    Login
+                                </a>
+
+                            </li>
+
+                            <li class="nav-item">
+
+                                <a class="nav-link"
+                                   asp-controller="Account"
+                                   asp-action="Register">
+                                    Register
+                                </a>
+
+                            </li>
+
+                        </ul>
+                    }
 
                 </div>
+
             </div>
+
         </nav>
+
     </header>
 
 
-    <div class="container mt-4">
+    <main class="container py-3">
 
-        <main role="main"
-              class="pb-3">
+        @RenderBody()
 
-            @RenderBody()
-
-        </main>
-
-    </div>
+    </main>
 
 
-    <footer class="border-top footer text-muted mt-5">
+    <footer class="border-top text-muted mt-5">
 
-        <div class="container">
+        <div class="container py-3">
 
-            &copy; 2026 - SmartPlace
+            &copy; 2026 SmartPlace ·
+            AI-Powered College Placement Management System
 
         </div>
 
     </footer>
 
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery/dist/jquery.min.js">
+    </script>
 
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js">
+    </script>
 
     <script src="~/js/site.js"
-            asp-append-version="true"></script>
+            asp-append-version="true">
+    </script>
 
     @await RenderSectionAsync(
         "Scripts",
         required: false)
 
 </body>
+
 </html>

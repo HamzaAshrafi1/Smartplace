@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPlace.API.Data;
@@ -13,47 +14,83 @@ namespace SmartPlace.API.Controllers;
 public class AIController : ControllerBase
 {
     private readonly SmartPlaceDbContext _context;
-    private readonly SkillExtractionService _skillExtractionService;
-    private readonly JobMatchingService _jobMatchingService;
-    private readonly OpenAIAnalysisService _openAIAnalysisService;
+
+    private readonly SkillExtractionService
+        _skillExtractionService;
+
+    private readonly JobMatchingService
+        _jobMatchingService;
+
+    private readonly OpenAIAnalysisService
+        _openAIAnalysisService;
+
+    private readonly JobEligibilityService
+        _eligibilityService;
 
     public AIController(
         SmartPlaceDbContext context,
-        SkillExtractionService skillExtractionService,
-        JobMatchingService jobMatchingService,
-        OpenAIAnalysisService openAIAnalysisService)
+        SkillExtractionService
+            skillExtractionService,
+        JobMatchingService
+            jobMatchingService,
+        OpenAIAnalysisService
+            openAIAnalysisService,
+        JobEligibilityService
+            eligibilityService)
     {
         _context = context;
-        _skillExtractionService = skillExtractionService;
-        _jobMatchingService = jobMatchingService;
-        _openAIAnalysisService = openAIAnalysisService;
+
+        _skillExtractionService =
+            skillExtractionService;
+
+        _jobMatchingService =
+            jobMatchingService;
+
+        _openAIAnalysisService =
+            openAIAnalysisService;
+
+        _eligibilityService =
+            eligibilityService;
     }
 
-    // --------------------------------------------------
-    // EXTRACT AND SAVE SKILLS FROM RESUME
-    // Student / Admin / Placement Officer
-    // POST: api/AI/extract-skills/1
-    // --------------------------------------------------
+    // ==================================================
+    // EXTRACT SKILLS
+    // ==================================================
 
-    [HttpPost("extract-skills/{studentId}")]
-    [Authorize(Roles = "Student,Admin,PlacementOfficer")]
-    public async Task<IActionResult> ExtractSkills(int studentId)
+    [HttpPost(
+        "extract-skills/{studentId:int}")]
+    [Authorize(
+        Roles =
+            "Student,Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        ExtractSkills(int studentId)
     {
-        var student = await _context.Students
-            .FirstOrDefaultAsync(
-                s => s.StudentId == studentId);
+        if (!await CanAccessStudentAsync(
+                studentId))
+        {
+            return Forbid();
+        }
+
+        var student =
+            await _context.Students
+                .FirstOrDefaultAsync(s =>
+                    s.StudentId ==
+                    studentId);
 
         if (student == null)
         {
             return NotFound(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
-        var resume = await _context.Resumes
-            .FirstOrDefaultAsync(
-                r => r.StudentId == studentId);
+        var resume =
+            await _context.Resumes
+                .FirstOrDefaultAsync(r =>
+                    r.StudentId ==
+                    studentId);
 
         if (resume == null)
         {
@@ -75,73 +112,91 @@ public class AIController : ControllerBase
         }
 
         var detectedSkills =
-            _skillExtractionService.ExtractSkills(
-                resume.ExtractedText);
+            _skillExtractionService
+                .ExtractSkills(
+                    resume.ExtractedText);
 
         if (detectedSkills.Count == 0)
         {
             resume.IsProcessed = true;
 
-            await _context.SaveChangesAsync();
+            await _context
+                .SaveChangesAsync();
 
             return Ok(new
             {
                 studentId,
+
                 detectedSkills,
+
                 newlyAddedSkills =
                     Array.Empty<string>(),
+
                 totalSkillsDetected = 0,
+
                 totalStudentSkills = 0,
+
                 studentSkills =
                     Array.Empty<string>(),
+
                 message =
                     "No recognizable skills were detected in the resume."
             });
         }
 
-        var addedSkills = new List<string>();
+        var addedSkills =
+            new List<string>();
 
-        foreach (var skillName in detectedSkills)
+        foreach (var skillName
+                 in detectedSkills)
         {
-            var normalizedSkillName =
+            var normalized =
                 skillName.Trim();
 
-            var skill = await _context.Skills
-                .FirstOrDefaultAsync(s =>
-                    s.Name.ToLower() ==
-                    normalizedSkillName.ToLower());
+            var skill =
+                await _context.Skills
+                    .FirstOrDefaultAsync(s =>
+                        s.Name.ToLower() ==
+                        normalized.ToLower());
 
             if (skill == null)
             {
-                skill = new Skill
-                {
-                    Name = normalizedSkillName
-                };
-
-                _context.Skills.Add(skill);
-
-                await _context.SaveChangesAsync();
-            }
-
-            var alreadyAssigned =
-                await _context.StudentSkills
-                    .AnyAsync(ss =>
-                        ss.StudentId == studentId &&
-                        ss.SkillId == skill.SkillId);
-
-            if (!alreadyAssigned)
-            {
-                var studentSkill =
-                    new StudentSkill
+                skill =
+                    new Skill
                     {
-                        StudentId = studentId,
-                        SkillId = skill.SkillId
+                        Name = normalized
                     };
 
-                _context.StudentSkills.Add(
-                    studentSkill);
+                _context.Skills.Add(
+                    skill);
 
-                addedSkills.Add(skill.Name);
+                await _context
+                    .SaveChangesAsync();
+            }
+
+            var assigned =
+                await _context.StudentSkills
+                    .AnyAsync(ss =>
+                        ss.StudentId ==
+                        studentId
+                        &&
+                        ss.SkillId ==
+                        skill.SkillId);
+
+            if (!assigned)
+            {
+                _context.StudentSkills.Add(
+                    new StudentSkill
+                    {
+                        StudentId =
+                            studentId,
+
+                        SkillId =
+                            skill.SkillId
+                    });
+
+                addedSkills.Add(
+                    skill.Name);
             }
         }
 
@@ -150,7 +205,8 @@ public class AIController : ControllerBase
         await _context.SaveChangesAsync();
 
         var studentSkills =
-            await GetStudentSkills(studentId);
+            await GetStudentSkills(
+                studentId);
 
         return Ok(new
         {
@@ -158,7 +214,8 @@ public class AIController : ControllerBase
 
             detectedSkills,
 
-            newlyAddedSkills = addedSkills,
+            newlyAddedSkills =
+                addedSkills,
 
             totalSkillsDetected =
                 detectedSkills.Count,
@@ -170,46 +227,83 @@ public class AIController : ControllerBase
         });
     }
 
-    // --------------------------------------------------
-    // HYBRID AI JOB MATCH
-    // Student / Recruiter / Admin / Placement Officer
-    // GET: api/AI/job-match/1/1
-    // --------------------------------------------------
+    // ==================================================
+    // SINGLE JOB MATCH
+    // ==================================================
 
-    [HttpGet("job-match/{studentId}/{jobId}")]
+    [HttpGet(
+        "job-match/{studentId:int}/{jobId:int}")]
     [Authorize(
-        Roles = "Student,Recruiter,Admin,PlacementOfficer")]
-    public async Task<IActionResult> GetJobMatch(
-        int studentId,
-        int jobId)
+        Roles =
+            "Student,Recruiter,Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        GetJobMatch(
+            int studentId,
+            int jobId)
     {
-        var student = await _context.Students
-            .FirstOrDefaultAsync(
-                s => s.StudentId == studentId);
+        if (User.IsInRole("Student") &&
+            !await CanAccessStudentAsync(
+                studentId))
+        {
+            return Forbid();
+        }
+
+        var student =
+            await _context.Students
+                .Include(s => s.Department)
+                .FirstOrDefaultAsync(s =>
+                    s.StudentId ==
+                    studentId);
 
         if (student == null)
         {
             return NotFound(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
-        var job = await _context.Jobs
-            .Include(j => j.Company)
-            .FirstOrDefaultAsync(
-                j => j.JobId == jobId);
+        var job =
+            await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j =>
+                    j.RequiredDepartment)
+                .FirstOrDefaultAsync(j =>
+                    j.JobId == jobId);
 
         if (job == null)
         {
             return NotFound(new
             {
-                message = "Job not found."
+                message =
+                    "Job not found."
             });
         }
 
+        if (User.IsInRole("Recruiter"))
+        {
+            var userId =
+                User.FindFirstValue(
+                    ClaimTypes.NameIdentifier);
+
+            if (job.Company?
+                    .RecruiterUserId !=
+                userId)
+            {
+                return Forbid();
+            }
+        }
+
+        var eligibility =
+            _eligibilityService
+                .Evaluate(
+                    student,
+                    job);
+
         var studentSkills =
-            await GetStudentSkills(studentId);
+            await GetStudentSkills(
+                studentId);
 
         if (studentSkills.Count == 0)
         {
@@ -227,68 +321,53 @@ public class AIController : ControllerBase
             _skillExtractionService
                 .ExtractSkills(jobText);
 
-        if (requiredSkills.Count == 0)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "No recognizable required skills were found in the job description."
-            });
-        }
-
         var matchScore =
-            _jobMatchingService.CalculateMatchScore(
-                studentSkills,
-                requiredSkills);
+            requiredSkills.Count == 0
+                ? 0
+                : _jobMatchingService
+                    .CalculateMatchScore(
+                        studentSkills,
+                        requiredSkills);
 
         var matchingSkills =
-            _jobMatchingService.GetMatchingSkills(
-                studentSkills,
-                requiredSkills);
+            requiredSkills.Count == 0
+                ? new List<string>()
+                : _jobMatchingService
+                    .GetMatchingSkills(
+                        studentSkills,
+                        requiredSkills);
 
         var missingSkills =
-            _jobMatchingService.GetMissingSkills(
-                studentSkills,
-                requiredSkills);
-
-        var cgpaEligible =
-            student.CGPA >= job.MinimumCGPA;
-
-        var backlogEligible =
-            student.Backlogs <=
-            job.MaximumBacklogs;
-
-        var graduationYearEligible =
-            student.GraduationYear ==
-            job.GraduationYear;
-
-        var academicallyEligible =
-            cgpaEligible &&
-            backlogEligible &&
-            graduationYearEligible;
+            requiredSkills.Count == 0
+                ? new List<string>()
+                : _jobMatchingService
+                    .GetMissingSkills(
+                        studentSkills,
+                        requiredSkills);
 
         string recommendation;
 
-        if (!academicallyEligible)
+        if (!eligibility.IsEligible)
         {
             recommendation =
                 "Not Academically Eligible";
         }
         else if (matchScore >= 70)
         {
-            recommendation = "Strong Match";
+            recommendation =
+                "Strong Match";
         }
         else if (matchScore >= 40)
         {
-            recommendation = "Moderate Match";
+            recommendation =
+                "Moderate Match";
         }
         else
         {
-            recommendation = "Low Skill Match";
+            recommendation =
+                "Low Skill Match";
         }
 
-        // OpenAI is used only for the explanation.
-        // Core matching still works if OpenAI fails.
         string aiAnalysis;
 
         try
@@ -301,13 +380,14 @@ public class AIController : ControllerBase
                         matchScore,
                         matchingSkills,
                         missingSkills,
-                        academicallyEligible);
+                        eligibility
+                            .IsEligible);
         }
         catch
         {
             aiAnalysis =
                 "AI explanation is currently unavailable. " +
-                "The calculated eligibility and skill-match results are still valid.";
+                "The eligibility and skill-match results remain valid.";
         }
 
         return Ok(new
@@ -315,38 +395,86 @@ public class AIController : ControllerBase
             student = new
             {
                 student.StudentId,
+
                 student.FullName,
+
+                student.TenthPercentage,
+
+                student.TwelfthPercentage,
+
                 student.CGPA,
+
                 student.Backlogs,
-                student.GraduationYear
+
+                student.GraduationYear,
+
+                department =
+                    student.Department?.Name
             },
 
             job = new
             {
                 job.JobId,
+
                 job.Title,
-                company = job.Company?.Name,
+
+                company =
+                    job.Company?.Name,
+
                 job.Package,
+
+                requiredDepartment =
+                    job.RequiredDepartment?.Name,
+
+                job.MinimumTenthPercentage,
+
+                job.MinimumTwelfthPercentage,
+
                 job.MinimumCGPA,
+
                 job.MaximumBacklogs,
+
                 job.GraduationYear
             },
 
             skillAnalysis = new
             {
-                matchPercentage = matchScore,
+                matchPercentage =
+                    matchScore,
+
                 studentSkills,
+
                 requiredSkills,
+
                 matchingSkills,
+
                 missingSkills
             },
 
             eligibility = new
             {
-                cgpaEligible,
-                backlogEligible,
-                graduationYearEligible,
-                academicallyEligible
+                academicallyEligible =
+                    eligibility.IsEligible,
+
+                eligibility
+                    .DepartmentEligible,
+
+                eligibility
+                    .TenthEligible,
+
+                eligibility
+                    .TwelfthEligible,
+
+                eligibility
+                    .CGPAEligible,
+
+                eligibility
+                    .BacklogEligible,
+
+                eligibility
+                    .GraduationYearEligible,
+
+                eligibility.Reasons
             },
 
             recommendation,
@@ -355,31 +483,46 @@ public class AIController : ControllerBase
         });
     }
 
-    // --------------------------------------------------
-    // AI JOB RECOMMENDATIONS
-    // Student / Admin / Placement Officer
-    // GET: api/AI/recommend-jobs/1
-    // --------------------------------------------------
+    // ==================================================
+    // AI RECOMMENDATIONS
+    //
+    // ONLY academically eligible jobs enter
+    // the AI recommendation ranking.
+    // ==================================================
 
-    [HttpGet("recommend-jobs/{studentId}")]
-    [Authorize(Roles = "Student,Admin,PlacementOfficer")]
-    public async Task<IActionResult> RecommendJobs(
-        int studentId)
+    [HttpGet(
+        "recommend-jobs/{studentId:int}")]
+    [Authorize(
+        Roles =
+            "Student,Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        RecommendJobs(int studentId)
     {
-        var student = await _context.Students
-            .FirstOrDefaultAsync(
-                s => s.StudentId == studentId);
+        if (!await CanAccessStudentAsync(
+                studentId))
+        {
+            return Forbid();
+        }
+
+        var student =
+            await _context.Students
+                .Include(s => s.Department)
+                .FirstOrDefaultAsync(s =>
+                    s.StudentId ==
+                    studentId);
 
         if (student == null)
         {
             return NotFound(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
         var studentSkills =
-            await GetStudentSkills(studentId);
+            await GetStudentSkills(
+                studentId);
 
         if (studentSkills.Count == 0)
         {
@@ -390,12 +533,14 @@ public class AIController : ControllerBase
             });
         }
 
-        var jobs = await _context.Jobs
-            .Include(j => j.Company)
-            .Where(j =>
-                j.Status.ToLower() ==
-                "published")
-            .ToListAsync();
+        var jobs =
+            await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j =>
+                    j.RequiredDepartment)
+                .Where(j =>
+                    j.Status == "Published")
+                .ToListAsync();
 
         if (jobs.Count == 0)
         {
@@ -411,6 +556,22 @@ public class AIController : ControllerBase
 
         foreach (var job in jobs)
         {
+            var eligibility =
+                _eligibilityService
+                    .Evaluate(
+                        student,
+                        job);
+
+            // ==================================================
+            // CRITICAL:
+            // Ineligible jobs are NOT AI recommendations.
+            // ==================================================
+
+            if (!eligibility.IsEligible)
+            {
+                continue;
+            }
+
             var jobText =
                 $"{job.Title} {job.Description}";
 
@@ -418,7 +579,7 @@ public class AIController : ControllerBase
                 _skillExtractionService
                     .ExtractSkills(jobText);
 
-            var matchScore = 0.0;
+            double matchScore = 0;
 
             var matchingSkills =
                 new List<string>();
@@ -447,31 +608,9 @@ public class AIController : ControllerBase
                             requiredSkills);
             }
 
-            var cgpaEligible =
-                student.CGPA >=
-                job.MinimumCGPA;
-
-            var backlogEligible =
-                student.Backlogs <=
-                job.MaximumBacklogs;
-
-            var graduationYearEligible =
-                student.GraduationYear ==
-                job.GraduationYear;
-
-            var academicallyEligible =
-                cgpaEligible &&
-                backlogEligible &&
-                graduationYearEligible;
-
             string recommendation;
 
-            if (!academicallyEligible)
-            {
-                recommendation =
-                    "Not Academically Eligible";
-            }
-            else if (matchScore >= 70)
+            if (matchScore >= 70)
             {
                 recommendation =
                     "Strong Match";
@@ -490,31 +629,44 @@ public class AIController : ControllerBase
             recommendations.Add(
                 new JobRecommendation
                 {
-                    JobId = job.JobId,
-                    JobTitle = job.Title,
+                    JobId =
+                        job.JobId,
+
+                    JobTitle =
+                        job.Title,
+
                     Company =
                         job.Company?.Name,
-                    Package = job.Package,
-                    Location = job.Location,
+
+                    Package =
+                        job.Package,
+
+                    Location =
+                        job.Location,
+
                     MatchPercentage =
                         matchScore,
+
                     AcademicallyEligible =
-                        academicallyEligible,
+                        true,
+
                     MatchingSkills =
                         matchingSkills,
+
                     MissingSkills =
                         missingSkills,
+
                     Recommendation =
                         recommendation
                 });
         }
 
-        var rankedRecommendations =
+        var ranked =
             recommendations
                 .OrderByDescending(r =>
-                    r.AcademicallyEligible)
-                .ThenByDescending(r =>
                     r.MatchPercentage)
+                .ThenBy(r =>
+                    r.JobTitle)
                 .ToList();
 
         return Ok(new
@@ -522,42 +674,97 @@ public class AIController : ControllerBase
             student = new
             {
                 student.StudentId,
+
                 student.FullName,
+
+                student.TenthPercentage,
+
+                student.TwelfthPercentage,
+
                 student.CGPA,
+
                 student.Backlogs,
-                student.GraduationYear
+
+                student.GraduationYear,
+
+                department =
+                    student.Department?.Name
             },
 
             studentSkills,
 
+            totalPublishedJobs =
+                jobs.Count,
+
+            totalEligibleJobs =
+                ranked.Count,
+
             totalJobsAnalyzed =
-                rankedRecommendations.Count,
+                ranked.Count,
 
             recommendations =
-                rankedRecommendations
+                ranked
         });
     }
 
-    // --------------------------------------------------
-    // PRIVATE HELPER
-    // --------------------------------------------------
+    // ==================================================
+    // STUDENT SKILLS
+    // ==================================================
 
     private async Task<List<string>>
         GetStudentSkills(int studentId)
     {
-        return await _context.StudentSkills
+        return await _context
+            .StudentSkills
             .Where(ss =>
-                ss.StudentId == studentId)
+                ss.StudentId ==
+                studentId)
             .Include(ss => ss.Skill)
-            .Select(ss => ss.Skill.Name)
+            .Where(ss =>
+                ss.Skill != null)
+            .Select(ss =>
+                ss.Skill!.Name)
             .OrderBy(name => name)
             .ToListAsync();
     }
 
-    // --------------------------------------------------
-    // PRIVATE RESULT MODEL
-    // Avoids reflection when ranking recommendations
-    // --------------------------------------------------
+    // ==================================================
+    // OWNERSHIP
+    // ==================================================
+
+    private async Task<bool>
+        CanAccessStudentAsync(
+            int studentId)
+    {
+        // Admin and PlacementOfficer can
+        // intentionally work with students.
+        if (!User.IsInRole("Student"))
+        {
+            return true;
+        }
+
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrWhiteSpace(
+            userId))
+        {
+            return false;
+        }
+
+        return await _context.Students
+            .AnyAsync(s =>
+                s.StudentId ==
+                studentId
+                &&
+                s.ApplicationUserId ==
+                userId);
+    }
+
+    // ==================================================
+    // INTERNAL RECOMMENDATION MODEL
+    // ==================================================
 
     private sealed class JobRecommendation
     {
@@ -572,17 +779,19 @@ public class AIController : ControllerBase
 
         public string? Location { get; set; }
 
-        public double MatchPercentage { get; set; }
+        public double MatchPercentage
+        { get; set; }
 
-        public bool AcademicallyEligible { get; set; }
+        public bool AcademicallyEligible
+        { get; set; }
 
-        public List<string> MatchingSkills { get; set; } =
-            new();
+        public List<string> MatchingSkills
+        { get; set; } = new();
 
-        public List<string> MissingSkills { get; set; } =
-            new();
+        public List<string> MissingSkills
+        { get; set; } = new();
 
-        public string Recommendation { get; set; } =
-            string.Empty;
+        public string Recommendation
+        { get; set; } = string.Empty;
     }
 }

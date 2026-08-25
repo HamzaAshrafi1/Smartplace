@@ -5,152 +5,195 @@ namespace SmartPlace.Web.Controllers;
 
 public class AccountController : Controller
 {
-    private readonly AuthApiService _authApiService;
+    private readonly AuthApiService
+        _authApiService;
 
-    public AccountController(AuthApiService authApiService)
+    public AccountController(
+        AuthApiService authApiService)
     {
-        _authApiService = authApiService;
+        _authApiService =
+            authApiService;
     }
 
-    // --------------------------------------------------
-    // LOGIN PAGE
-    // GET: /Account/Login
-    // --------------------------------------------------
+    // ==================================================
+    // LOGIN GET
+    // ==================================================
 
     [HttpGet]
     public IActionResult Login()
     {
-        return View();
+        if (HttpContext.Session
+            .GetString("JWToken") != null)
+        {
+            return RedirectToDashboard();
+        }
+
+        return View(
+            new LoginRequest());
     }
 
-    // --------------------------------------------------
-    // LOGIN SUBMIT
-    // POST: /Account/Login
-    // --------------------------------------------------
+    // ==================================================
+    // LOGIN POST
+    // ==================================================
 
     [HttpPost]
-    public async Task<IActionResult> Login(
-        LoginRequest model)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult>
+        Login(LoginRequest model)
     {
+        if (string.IsNullOrWhiteSpace(
+            model.Email))
+        {
+            ModelState.AddModelError(
+                nameof(model.Email),
+                "Email is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+            model.Password))
+        {
+            ModelState.AddModelError(
+                nameof(model.Password),
+                "Password is required.");
+        }
+
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
         var result =
-            await _authApiService.LoginAsync(model);
+            await _authApiService
+                .LoginAsync(model);
 
-        if (result == null)
+        if (!result.Success ||
+            result.Response == null)
         {
             ViewBag.Error =
-                "Invalid email or password.";
+                result.Message;
 
             return View(model);
         }
 
-        // Store JWT in session
+        var response =
+            result.Response;
+
         HttpContext.Session.SetString(
             "JWToken",
-            result.Token);
+            response.Token);
 
         HttpContext.Session.SetString(
             "UserName",
-            result.User.FullName);
+            response.User.FullName);
 
         HttpContext.Session.SetString(
             "UserEmail",
-            result.User.Email);
+            response.User.Email);
 
-        if (result.User.Roles.Count > 0)
+        HttpContext.Session.SetString(
+            "UserId",
+            response.User.Id);
+
+        var role =
+            response.User.Roles
+                .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(
+            role))
         {
             HttpContext.Session.SetString(
                 "UserRole",
-                result.User.Roles[0]);
+                role);
         }
 
-        // Role-based redirect
-        var role =
-            result.User.Roles.FirstOrDefault();
-
-        if (role == "Student")
-        {
-            return RedirectToAction(
-                "Index",
-                "StudentDashboard");
-        }
-
-        if (role == "Recruiter")
-        {
-            return RedirectToAction(
-                "Index",
-                "RecruiterDashboard");
-        }
-
-        if (role == "PlacementOfficer")
-        {
-            return RedirectToAction(
-                "Index",
-                "PlacementDashboard");
-        }
-
-        if (role == "Admin")
-        {
-            return RedirectToAction(
-                "Index",
-                "AdminDashboard");
-        }
-
-        return RedirectToAction(
-            "Index",
-            "Home");
+        return RedirectToDashboard();
     }
 
-    // --------------------------------------------------
-    // REGISTER PAGE
-    // GET: /Account/Register
-    // --------------------------------------------------
+    // ==================================================
+    // REGISTER GET
+    // ==================================================
 
     [HttpGet]
     public IActionResult Register()
     {
-        return View();
+        if (HttpContext.Session
+            .GetString("JWToken") != null)
+        {
+            return RedirectToDashboard();
+        }
+
+        return View(
+            new RegisterRequest());
     }
 
-    // --------------------------------------------------
-    // REGISTER SUBMIT
-    // POST: /Account/Register
-    // --------------------------------------------------
+    // ==================================================
+    // REGISTER POST
+    // ==================================================
 
     [HttpPost]
-    public async Task<IActionResult> Register(
-        RegisterRequest model)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult>
+        Register(RegisterRequest model)
     {
+        if (string.IsNullOrWhiteSpace(
+            model.FullName))
+        {
+            ModelState.AddModelError(
+                nameof(model.FullName),
+                "Full name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+            model.Email))
+        {
+            ModelState.AddModelError(
+                nameof(model.Email),
+                "Email is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+            model.Password))
+        {
+            ModelState.AddModelError(
+                nameof(model.Password),
+                "Password is required.");
+        }
+
+        if (model.Role != "Student" &&
+            model.Role != "Recruiter")
+        {
+            ModelState.AddModelError(
+                nameof(model.Role),
+                "Select Student or Recruiter.");
+        }
+
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
-        var success =
-            await _authApiService.RegisterAsync(model);
+        var result =
+            await _authApiService
+                .RegisterAsync(model);
 
-        if (!success)
+        if (!result.Success)
         {
             ViewBag.Error =
-                "Registration failed. Please check the details and try again.";
+                result.Message;
 
             return View(model);
         }
 
         TempData["Success"] =
-            "Registration successful. Please login.";
+            "Registration successful. Please log in.";
 
         return RedirectToAction(
-            "Login");
+            nameof(Login));
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // LOGOUT
-    // --------------------------------------------------
+    // ==================================================
 
     [HttpGet]
     public IActionResult Logout()
@@ -158,6 +201,45 @@ public class AccountController : Controller
         HttpContext.Session.Clear();
 
         return RedirectToAction(
-            "Login");
+            nameof(Login));
+    }
+
+    // ==================================================
+    // ROLE REDIRECT
+    // ==================================================
+
+    private IActionResult RedirectToDashboard()
+    {
+        var role =
+            HttpContext.Session
+                .GetString("UserRole");
+
+        return role switch
+        {
+            "Student" =>
+                RedirectToAction(
+                    "Index",
+                    "StudentDashboard"),
+
+            "Recruiter" =>
+                RedirectToAction(
+                    "Index",
+                    "RecruiterDashboard"),
+
+            "PlacementOfficer" =>
+                RedirectToAction(
+                    "Index",
+                    "PlacementDashboard"),
+
+            "Admin" =>
+                RedirectToAction(
+                    "Index",
+                    "AdminDashboard"),
+
+            _ =>
+                RedirectToAction(
+                    "Login",
+                    "Account")
+        };
     }
 }

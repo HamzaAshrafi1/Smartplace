@@ -6,6 +6,7 @@
 
 <div class="container py-4">
 
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
@@ -26,6 +27,25 @@
 
     </div>
 
+
+    <!-- Success Message -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+
+    <!-- Error Message -->
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+
     @if (ViewBag.Error != null)
     {
         <div class="alert alert-warning">
@@ -33,35 +53,53 @@
         </div>
     }
 
+
     @if (Model.Recommendations != null &&
          Model.Recommendations.Count > 0)
     {
-        <div class="mb-4">
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
+        <!-- Student Skills -->
+        <div class="card border-0 shadow-sm mb-4">
 
-                    <h5 class="fw-bold">
-                        Your Skills
-                    </h5>
+            <div class="card-body">
 
-                    <div class="d-flex flex-wrap gap-2 mt-3">
+                <div class="d-flex justify-content-between
+                    align-items-center">
 
-                        @foreach (var skill in Model.StudentSkills)
-                        {
-                            <span class="badge bg-secondary">
-                                @skill
-                            </span>
-                        }
+                    <div>
+                        <h5 class="fw-bold mb-1">
+                            Your Skills
+                        </h5>
 
+                        <p class="text-muted small mb-0">
+                            Skills used while calculating your job matches.
+                        </p>
                     </div>
 
+                    <span class="badge bg-primary">
+                        @Model.StudentSkills.Count Skills
+                    </span>
+
                 </div>
+
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+
+                    @foreach (var skill in Model.StudentSkills)
+                    {
+                        <span class="badge bg-secondary p-2">
+                            @skill
+                        </span>
+                    }
+
+                </div>
+
             </div>
 
         </div>
 
 
+        <!-- Jobs -->
         <div class="row g-4">
 
             @foreach (var job in Model.Recommendations)
@@ -72,7 +110,9 @@
 
                         <div class="card-body p-4">
 
-                            <div class="d-flex justify-content-between align-items-start mb-3">
+                            <!-- Job Header -->
+                            <div class="d-flex justify-content-between
+                                align-items-start mb-3">
 
                                 <div>
 
@@ -84,7 +124,15 @@
                                         @(job.Company ?? "Company")
                                     </div>
 
+                                    @if (!string.IsNullOrWhiteSpace(job.Location))
+                                    {
+                                        <div class="small text-muted mt-1">
+                                            @job.Location
+                                        </div>
+                                    }
+
                                 </div>
+
 
                                 @if (job.AcademicallyEligible)
                                 {
@@ -102,6 +150,7 @@
                             </div>
 
 
+                            <!-- Match + Package -->
                             <div class="row mb-3">
 
                                 <div class="col-6">
@@ -116,13 +165,14 @@
 
                                 </div>
 
+
                                 <div class="col-6">
 
                                     <small class="text-muted">
                                         Package
                                     </small>
 
-                                    <div class="fw-bold mt-1">
+                                    <div class="fs-5 fw-bold mt-1">
                                         @job.Package
                                     </div>
 
@@ -131,30 +181,36 @@
                             </div>
 
 
+                            <!-- Match Progress -->
                             <div class="progress mb-4"
                                  style="height: 10px;">
 
                                 <div class="progress-bar"
                                      role="progressbar"
-                                     style="width: @job.MatchPercentage%">
+                                     style="width: @job.MatchPercentage%"
+                                     aria-valuenow="@job.MatchPercentage"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
                                 </div>
 
                             </div>
 
 
+                            <!-- Recommendation -->
                             <div class="mb-3">
 
-                                <strong>
+                                <small class="text-muted">
                                     Recommendation
-                                </strong>
+                                </small>
 
-                                <div class="mt-1">
+                                <div class="fw-bold mt-1">
                                     @job.Recommendation
                                 </div>
 
                             </div>
 
 
+                            <!-- Matching Skills -->
                             <div class="mb-3">
 
                                 <strong>
@@ -163,7 +219,8 @@
 
                                 <div class="d-flex flex-wrap gap-2 mt-2">
 
-                                    @if (job.MatchingSkills.Count > 0)
+                                    @if (job.MatchingSkills != null &&
+                                         job.MatchingSkills.Count > 0)
                                     {
                                         @foreach (var skill in job.MatchingSkills)
                                         {
@@ -174,8 +231,8 @@
                                     }
                                     else
                                     {
-                                        <span class="text-muted">
-                                            None
+                                        <span class="text-muted small">
+                                            No matching skills detected.
                                         </span>
                                     }
 
@@ -184,6 +241,7 @@
                             </div>
 
 
+                            <!-- Missing Skills -->
                             <div>
 
                                 <strong>
@@ -192,7 +250,8 @@
 
                                 <div class="d-flex flex-wrap gap-2 mt-2">
 
-                                    @if (job.MissingSkills.Count > 0)
+                                    @if (job.MissingSkills != null &&
+                                         job.MissingSkills.Count > 0)
                                     {
                                         @foreach (var skill in job.MissingSkills)
                                         {
@@ -212,6 +271,36 @@
 
                             </div>
 
+
+                            <!-- Apply -->
+                            <hr class="my-4" />
+
+                            @if (job.AcademicallyEligible)
+                            {
+                                <form asp-controller="StudentDashboard"
+                                      asp-action="Apply"
+                                      method="post">
+
+                                    <input type="hidden"
+                                           name="jobId"
+                                           value="@job.JobId" />
+
+                                    <button type="submit"
+                                            class="btn btn-primary w-100">
+                                        Apply for this Job
+                                    </button>
+
+                                </form>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="btn btn-secondary w-100"
+                                        disabled>
+                                    Not Academically Eligible
+                                </button>
+                            }
+
                         </div>
 
                     </div>
@@ -223,18 +312,28 @@
     }
     else
     {
+        <!-- No Jobs -->
         <div class="card border-0 shadow-sm">
+
             <div class="card-body text-center py-5">
 
-                <h5 class="text-muted">
-                    No job recommendations available
+                <h5 class="fw-bold">
+                    No Job Recommendations Available
                 </h5>
 
-                <p class="text-muted mb-0">
-                    Published jobs will appear here once available.
+                <p class="text-muted mb-3">
+                    There are currently no published jobs
+                    available for recommendation.
                 </p>
 
+                <a asp-controller="StudentDashboard"
+                   asp-action="Index"
+                   class="btn btn-outline-primary">
+                    Back to Dashboard
+                </a>
+
             </div>
+
         </div>
     }
 

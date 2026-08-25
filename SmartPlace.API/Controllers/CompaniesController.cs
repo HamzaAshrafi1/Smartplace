@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPlace.API.Data;
@@ -13,38 +14,49 @@ public class CompaniesController : ControllerBase
 {
     private readonly SmartPlaceDbContext _context;
 
-    public CompaniesController(SmartPlaceDbContext context)
+    public CompaniesController(
+        SmartPlaceDbContext context)
     {
         _context = context;
     }
 
-    // --------------------------------------------------
-    // GET ALL COMPANIES
-    // GET: api/Companies
-    // --------------------------------------------------
-
     [HttpGet]
-    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
-    public async Task<ActionResult<IEnumerable<Company>>> GetCompanies()
+    [Authorize(
+        Roles = "Admin,Student,Recruiter,PlacementOfficer")]
+    public async Task<ActionResult<IEnumerable<Company>>>
+        GetCompanies()
     {
-        var companies = await _context.Companies
-            .OrderBy(c => c.Name)
-            .ToListAsync();
+        IQueryable<Company> query =
+            _context.Companies;
+
+        if (User.IsInRole("Recruiter"))
+        {
+            var userId =
+                User.FindFirstValue(
+                    ClaimTypes.NameIdentifier);
+
+            query = query.Where(c =>
+                c.RecruiterUserId == userId);
+        }
+
+        var companies =
+            await query
+                .OrderBy(c => c.Name)
+                .ToListAsync();
 
         return Ok(companies);
     }
 
-    // --------------------------------------------------
-    // GET COMPANY BY ID
-    // GET: api/Companies/1
-    // --------------------------------------------------
-
-    [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,Student,Recruiter,PlacementOfficer")]
-    public async Task<ActionResult<Company>> GetCompany(int id)
+    [HttpGet("{id:int}")]
+    [Authorize(
+        Roles = "Admin,Student,Recruiter,PlacementOfficer")]
+    public async Task<ActionResult<Company>>
+        GetCompany(int id)
     {
-        var company = await _context.Companies
-            .FirstOrDefaultAsync(c => c.CompanyId == id);
+        var company =
+            await _context.Companies
+                .FirstOrDefaultAsync(
+                    c => c.CompanyId == id);
 
         if (company == null)
         {
@@ -54,45 +66,79 @@ public class CompaniesController : ControllerBase
             });
         }
 
+        if (User.IsInRole("Recruiter") &&
+            !RecruiterOwns(company))
+        {
+            return Forbid();
+        }
+
         return Ok(company);
     }
 
-    // --------------------------------------------------
-    // CREATE COMPANY
-    // Recruiter
-    // POST: api/Companies
-    // --------------------------------------------------
-
     [HttpPost]
     [Authorize(Roles = "Recruiter")]
-    public async Task<ActionResult<Company>> CreateCompany(
-        Company company)
+    public async Task<ActionResult<Company>>
+        CreateCompany(Company company)
     {
-        if (string.IsNullOrWhiteSpace(company.Name))
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+        var existingOwnedCompany =
+            await _context.Companies
+                .AnyAsync(c =>
+                    c.RecruiterUserId == userId);
+
+        if (existingOwnedCompany)
         {
             return BadRequest(new
             {
-                message = "Company name is required."
+                message =
+                    "This recruiter already has a registered company."
             });
         }
 
-        var exists = await _context.Companies
-            .AnyAsync(c =>
-                c.Name.ToLower() ==
-                company.Name.Trim().ToLower());
-
-        if (exists)
+        if (string.IsNullOrWhiteSpace(
+            company.Name))
         {
             return BadRequest(new
             {
-                message = "Company already exists."
+                message =
+                    "Company name is required."
             });
         }
 
-        company.Name = company.Name.Trim();
+        var normalizedName =
+            company.Name.Trim();
 
-        // New companies must first be approved
-        company.ApprovalStatus = "Pending";
+        var duplicate =
+            await _context.Companies
+                .AnyAsync(c =>
+                    c.Name.ToLower() ==
+                    normalizedName.ToLower());
+
+        if (duplicate)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Company already exists."
+            });
+        }
+
+        company.Name =
+            normalizedName;
+
+        company.ApprovalStatus =
+            "Pending";
+
+        company.RecruiterUserId =
+            userId;
 
         _context.Companies.Add(company);
 
@@ -100,152 +146,160 @@ public class CompaniesController : ControllerBase
 
         return CreatedAtAction(
             nameof(GetCompany),
-            new { id = company.CompanyId },
+            new
+            {
+                id = company.CompanyId
+            },
             company);
     }
 
-    // --------------------------------------------------
-    // UPDATE COMPANY DETAILS
-    // Recruiter / Admin / Placement Officer
-    // PUT: api/Companies/1
-    // --------------------------------------------------
-
-    [HttpPut("{id}")]
-    [Authorize(Roles = "Recruiter,Admin,PlacementOfficer")]
-    public async Task<IActionResult> UpdateCompany(
-        int id,
-        Company company)
+    [HttpPut("{id:int}")]
+    [Authorize(
+        Roles = "Recruiter,Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        UpdateCompany(
+            int id,
+            Company company)
     {
         if (id != company.CompanyId)
         {
             return BadRequest(new
             {
                 message =
-                    "Company ID in URL does not match CompanyId in request body."
+                    "Company ID does not match."
             });
         }
 
-        var existingCompany = await _context.Companies
-            .FindAsync(id);
+        var existing =
+            await _context.Companies
+                .FindAsync(id);
 
-        if (existingCompany == null)
+        if (existing == null)
         {
             return NotFound(new
             {
-                message = "Company not found."
+                message =
+                    "Company not found."
             });
         }
 
-        if (string.IsNullOrWhiteSpace(company.Name))
+        if (User.IsInRole("Recruiter") &&
+            !RecruiterOwns(existing))
         {
-            return BadRequest(new
-            {
-                message = "Company name is required."
-            });
+            return Forbid();
         }
 
-        var duplicateExists = await _context.Companies
-            .AnyAsync(c =>
-                c.CompanyId != id &&
-                c.Name.ToLower() ==
-                company.Name.Trim().ToLower());
-
-        if (duplicateExists)
+        if (string.IsNullOrWhiteSpace(
+            company.Name))
         {
             return BadRequest(new
             {
                 message =
-                    "Another company with this name already exists."
+                    "Company name is required."
             });
         }
 
-        existingCompany.Name = company.Name.Trim();
-        existingCompany.Industry = company.Industry;
-        existingCompany.Location = company.Location;
-        existingCompany.Website = company.Website;
-        existingCompany.Description = company.Description;
+        var name =
+            company.Name.Trim();
 
-        // ApprovalStatus is NOT changed here.
-        // It has a dedicated secure endpoint.
+        var duplicate =
+            await _context.Companies
+                .AnyAsync(c =>
+                    c.CompanyId != id &&
+                    c.Name.ToLower() ==
+                    name.ToLower());
+
+        if (duplicate)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Another company already uses this name."
+            });
+        }
+
+        existing.Name = name;
+        existing.Industry =
+            company.Industry;
+        existing.Location =
+            company.Location;
+        existing.Website =
+            company.Website;
+        existing.Description =
+            company.Description;
 
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
-    // --------------------------------------------------
-    // APPROVE / REJECT COMPANY
-    // Admin / Placement Officer
-    // PUT: api/Companies/1/approval
-    // --------------------------------------------------
-
-    [HttpPut("{id}/approval")]
-    [Authorize(Roles = "Admin,PlacementOfficer")]
-    public async Task<IActionResult> UpdateApprovalStatus(
-        int id,
-        [FromBody] string status)
+    [HttpPut("{id:int}/approval")]
+    [Authorize(
+        Roles = "Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        UpdateApprovalStatus(
+            int id,
+            [FromBody] string status)
     {
-        var company = await _context.Companies
-            .FindAsync(id);
+        var company =
+            await _context.Companies
+                .FindAsync(id);
 
         if (company == null)
         {
             return NotFound(new
             {
-                message = "Company not found."
+                message =
+                    "Company not found."
             });
         }
 
-        string[] allowedStatuses =
+        string[] allowed =
         {
             "Pending",
             "Approved",
             "Rejected"
         };
 
-        var validStatus = allowedStatuses
-            .FirstOrDefault(s =>
+        var valid =
+            allowed.FirstOrDefault(s =>
                 string.Equals(
                     s,
                     status,
-                    StringComparison.OrdinalIgnoreCase));
+                    StringComparison
+                        .OrdinalIgnoreCase));
 
-        if (validStatus == null)
+        if (valid == null)
         {
             return BadRequest(new
             {
-                message = "Invalid approval status.",
-                allowedStatuses
+                message =
+                    "Invalid approval status.",
+                allowedStatuses = allowed
             });
         }
 
-        company.ApprovalStatus = validStatus;
+        company.ApprovalStatus = valid;
 
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
-    // --------------------------------------------------
-    // DELETE COMPANY
-    // Admin
-    // DELETE: api/Companies/1
-    // --------------------------------------------------
-
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> DeleteCompany(int id)
+    public async Task<IActionResult>
+        DeleteCompany(int id)
     {
-        var company = await _context.Companies
-            .Include(c => c.Jobs)
-            .FirstOrDefaultAsync(c => c.CompanyId == id);
+        var company =
+            await _context.Companies
+                .Include(c => c.Jobs)
+                .FirstOrDefaultAsync(
+                    c => c.CompanyId == id);
 
         if (company == null)
         {
-            return NotFound(new
-            {
-                message = "Company not found."
-            });
+            return NotFound();
         }
 
         if (company.Jobs.Any())
@@ -253,7 +307,7 @@ public class CompaniesController : ControllerBase
             return BadRequest(new
             {
                 message =
-                    "Cannot delete company because jobs are associated with it."
+                    "Cannot delete a company with jobs."
             });
         }
 
@@ -262,5 +316,17 @@ public class CompaniesController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private bool RecruiterOwns(
+        Company company)
+    {
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        return
+            !string.IsNullOrWhiteSpace(userId) &&
+            company.RecruiterUserId == userId;
     }
 }

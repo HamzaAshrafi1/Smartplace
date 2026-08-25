@@ -16,11 +16,14 @@ public class Company
 
     public string ApprovalStatus { get; set; } = "Pending";
 
-    // One company can post many jobs
+    // Recruiter ownership
+    public string? RecruiterUserId { get; set; }
+
+    public ApplicationUser? RecruiterUser { get; set; }
+
     public ICollection<Job> Jobs { get; set; }
         = new List<Job>();
 
-    // One company can have many placed students
     public ICollection<Placement> Placements { get; set; }
         = new List<Placement>();
 }

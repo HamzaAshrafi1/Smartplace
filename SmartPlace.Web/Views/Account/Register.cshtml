@@ -4,22 +4,29 @@
     ViewData["Title"] = "Register";
 }
 
-<div class="container mt-5 mb-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
+<div class="container py-5">
 
-            <div class="card shadow border-0">
-                <div class="card-body p-4">
+    <div class="row justify-content-center">
+
+        <div class="col-md-7 col-lg-6">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-body p-4 p-md-5">
 
                     <div class="text-center mb-4">
+
                         <h2 class="fw-bold">
-                            SmartPlace
+                            Create Account
                         </h2>
 
                         <p class="text-muted mb-0">
-                            Create your account
+                            Join SmartPlace as a student
+                            or recruiter.
                         </p>
+
                     </div>
+
 
                     @if (ViewBag.Error != null)
                     {
@@ -28,9 +35,15 @@
                         </div>
                     }
 
-                    <form asp-action="Register"
-                          asp-controller="Account"
+
+                    <form asp-controller="Account"
+                          asp-action="Register"
                           method="post">
+
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3">
+                        </div>
+
 
                         <div class="mb-3">
 
@@ -41,7 +54,9 @@
 
                             <input asp-for="FullName"
                                    class="form-control"
-                                   placeholder="Enter your full name" />
+                                   autocomplete="name"
+                                   placeholder="Enter your full name"
+                                   required />
 
                             <span asp-validation-for="FullName"
                                   class="text-danger">
@@ -49,22 +64,27 @@
 
                         </div>
 
+
                         <div class="mb-3">
 
                             <label asp-for="Email"
                                    class="form-label">
-                                Email
+                                Email Address
                             </label>
 
                             <input asp-for="Email"
+                                   type="email"
                                    class="form-control"
-                                   placeholder="Enter your email" />
+                                   autocomplete="email"
+                                   placeholder="name@example.com"
+                                   required />
 
                             <span asp-validation-for="Email"
                                   class="text-danger">
                             </span>
 
                         </div>
+
 
                         <div class="mb-3">
 
@@ -76,18 +96,57 @@
                             <input asp-for="Password"
                                    type="password"
                                    class="form-control"
-                                   placeholder="Create a password" />
-
-                            <small class="text-muted">
-                                Minimum 6 characters with uppercase,
-                                lowercase and number.
-                            </small>
+                                   autocomplete="new-password"
+                                   minlength="6"
+                                   required />
 
                             <span asp-validation-for="Password"
                                   class="text-danger">
                             </span>
 
+
+                            <div class="card bg-light border-0 mt-3">
+
+                                <div class="card-body py-3">
+
+                                    <div class="fw-semibold small mb-2">
+                                        Password must contain:
+                                    </div>
+
+                                    <div class="small text-muted">
+
+                                        <div>
+                                            ✓ At least 6 characters
+                                        </div>
+
+                                        <div>
+                                            ✓ At least one uppercase letter
+                                        </div>
+
+                                        <div>
+                                            ✓ At least one lowercase letter
+                                        </div>
+
+                                        <div>
+                                            ✓ At least one number
+                                        </div>
+
+                                        <div>
+                                            ✓ At least one special character
+                                            such as
+                                            <strong>
+                                                ! @@ # $ % ^ & *
+                                            </strong>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
                         </div>
+
 
                         <div class="mb-4">
 
@@ -97,7 +156,8 @@
                             </label>
 
                             <select asp-for="Role"
-                                    class="form-select">
+                                    class="form-select"
+                                    required>
 
                                 <option value="">
                                     Select account type
@@ -117,18 +177,23 @@
                                   class="text-danger">
                             </span>
 
+                            <div class="form-text">
+                                Admin and Placement Officer accounts
+                                are managed by SmartPlace.
+                            </div>
+
                         </div>
 
+
                         <button type="submit"
-                                class="btn btn-primary w-100">
+                                class="btn btn-primary w-100 py-2">
                             Create Account
                         </button>
 
                     </form>
 
-                    <hr class="my-4" />
 
-                    <div class="text-center">
+                    <div class="text-center mt-4">
 
                         <span class="text-muted">
                             Already have an account?
@@ -143,8 +208,16 @@
                     </div>
 
                 </div>
+
             </div>
 
         </div>
+
     </div>
+
 </div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

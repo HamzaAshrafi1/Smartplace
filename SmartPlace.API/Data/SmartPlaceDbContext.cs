@@ -4,7 +4,8 @@ using SmartPlace.API.Models;
 
 namespace SmartPlace.API.Data;
 
-public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
+public class SmartPlaceDbContext
+    : IdentityDbContext<ApplicationUser>
 {
     public SmartPlaceDbContext(
         DbContextOptions<SmartPlaceDbContext> options)
@@ -12,82 +13,82 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
-    public DbSet<Student> Students { get; set; }
+    public DbSet<Student> Students => Set<Student>();
 
-    public DbSet<Department> Departments { get; set; }
+    public DbSet<Department> Departments =>
+        Set<Department>();
 
-    public DbSet<Skill> Skills { get; set; }
+    public DbSet<Skill> Skills => Set<Skill>();
 
-    public DbSet<StudentSkill> StudentSkills { get; set; }
+    public DbSet<StudentSkill> StudentSkills =>
+        Set<StudentSkill>();
 
-    public DbSet<Company> Companies { get; set; }
+    public DbSet<Company> Companies =>
+        Set<Company>();
 
-    public DbSet<Job> Jobs { get; set; }
+    public DbSet<Job> Jobs => Set<Job>();
 
-    public DbSet<Application> Applications { get; set; }
+    public DbSet<Application> Applications =>
+        Set<Application>();
 
-    public DbSet<InterviewRound> InterviewRounds { get; set; }
+    public DbSet<InterviewRound> InterviewRounds =>
+        Set<InterviewRound>();
 
-    public DbSet<Placement> Placements { get; set; }
+    public DbSet<Placement> Placements =>
+        Set<Placement>();
 
-    public DbSet<Resume> Resumes { get; set; }
+    public DbSet<Resume> Resumes =>
+        Set<Resume>();
 
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // --------------------------------------------------
+        // ==================================================
         // STUDENT
-        // --------------------------------------------------
+        // ==================================================
 
         modelBuilder.Entity<Student>()
             .Property(s => s.CGPA)
-            .HasPrecision(3, 2);
+            .HasPrecision(4, 2);
+
+        modelBuilder.Entity<Student>()
+            .Property(s => s.TenthPercentage)
+            .HasPrecision(5, 2);
+
+        modelBuilder.Entity<Student>()
+            .Property(s => s.TwelfthPercentage)
+            .HasPrecision(5, 2);
 
         modelBuilder.Entity<Student>()
             .HasIndex(s => s.Email)
             .IsUnique();
 
-        // ApplicationUser -> Student
-        // One Identity user can have one Student profile
+        // Student <-> Identity User
         modelBuilder.Entity<Student>()
             .HasOne(s => s.ApplicationUser)
             .WithOne(u => u.Student)
             .HasForeignKey<Student>(
                 s => s.ApplicationUserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Student>()
             .HasIndex(s => s.ApplicationUserId)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter(
+                "[ApplicationUserId] IS NOT NULL");
 
-        // Department -> Students
+        // Student -> Department
         modelBuilder.Entity<Student>()
             .HasOne(s => s.Department)
             .WithMany(d => d.Students)
             .HasForeignKey(s => s.DepartmentId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // --------------------------------------------------
-        // DEPARTMENT
-        // --------------------------------------------------
-
-        modelBuilder.Entity<Department>()
-            .HasIndex(d => d.Name)
-            .IsUnique();
-
-        // --------------------------------------------------
-        // SKILL
-        // --------------------------------------------------
-
-        modelBuilder.Entity<Skill>()
-            .HasIndex(s => s.Name)
-            .IsUnique();
-
-        // --------------------------------------------------
-        // STUDENT SKILL
-        // --------------------------------------------------
+        // ==================================================
+        // STUDENT SKILLS
+        // ==================================================
 
         modelBuilder.Entity<StudentSkill>()
             .HasKey(ss => new
@@ -108,17 +109,44 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey(ss => ss.SkillId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // --------------------------------------------------
+        // ==================================================
         // COMPANY
-        // --------------------------------------------------
+        // ==================================================
 
         modelBuilder.Entity<Company>()
-            .HasIndex(c => c.Name)
-            .IsUnique();
+            .HasOne(c => c.RecruiterUser)
+            .WithOne(u => u.Company)
+            .HasForeignKey<Company>(
+                c => c.RecruiterUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        // --------------------------------------------------
+        modelBuilder.Entity<Company>()
+            .HasIndex(c => c.RecruiterUserId)
+            .IsUnique()
+            .HasFilter(
+                "[RecruiterUserId] IS NOT NULL");
+
+        // ==================================================
         // JOB
-        // --------------------------------------------------
+        // ==================================================
+
+        modelBuilder.Entity<Job>()
+            .Property(j => j.Package)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Job>()
+            .Property(j => j.MinimumCGPA)
+            .HasPrecision(4, 2);
+
+        modelBuilder.Entity<Job>()
+            .Property(
+                j => j.MinimumTenthPercentage)
+            .HasPrecision(5, 2);
+
+        modelBuilder.Entity<Job>()
+            .Property(
+                j => j.MinimumTwelfthPercentage)
+            .HasPrecision(5, 2);
 
         modelBuilder.Entity<Job>()
             .HasOne(j => j.Company)
@@ -127,16 +155,15 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Job>()
-            .Property(j => j.Package)
-            .HasPrecision(10, 2);
+            .HasOne(j => j.RequiredDepartment)
+            .WithMany()
+            .HasForeignKey(
+                j => j.RequiredDepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<Job>()
-            .Property(j => j.MinimumCGPA)
-            .HasPrecision(3, 2);
-
-        // --------------------------------------------------
+        // ==================================================
         // APPLICATION
-        // --------------------------------------------------
+        // ==================================================
 
         modelBuilder.Entity<Application>()
             .HasOne(a => a.Student)
@@ -158,9 +185,9 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
             })
             .IsUnique();
 
-        // --------------------------------------------------
-        // INTERVIEW ROUND
-        // --------------------------------------------------
+        // ==================================================
+        // INTERVIEW
+        // ==================================================
 
         modelBuilder.Entity<InterviewRound>()
             .HasOne(i => i.Application)
@@ -168,13 +195,13 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey(i => i.ApplicationId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // --------------------------------------------------
+        // ==================================================
         // PLACEMENT
-        // --------------------------------------------------
+        // ==================================================
 
         modelBuilder.Entity<Placement>()
             .Property(p => p.OfferedPackage)
-            .HasPrecision(10, 2);
+            .HasPrecision(18, 2);
 
         modelBuilder.Entity<Placement>()
             .HasOne(p => p.Student)
@@ -193,9 +220,9 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
             .HasIndex(p => p.StudentId)
             .IsUnique();
 
-        // --------------------------------------------------
+        // ==================================================
         // RESUME
-        // --------------------------------------------------
+        // ==================================================
 
         modelBuilder.Entity<Resume>()
             .HasOne(r => r.Student)
@@ -206,6 +233,18 @@ public class SmartPlaceDbContext : IdentityDbContext<ApplicationUser>
 
         modelBuilder.Entity<Resume>()
             .HasIndex(r => r.StudentId)
+            .IsUnique();
+
+        // ==================================================
+        // UNIQUE MASTER DATA
+        // ==================================================
+
+        modelBuilder.Entity<Department>()
+            .HasIndex(d => d.Name)
+            .IsUnique();
+
+        modelBuilder.Entity<Skill>()
+            .HasIndex(s => s.Name)
             .IsUnique();
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -13,193 +12,285 @@ namespace SmartPlace.API.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IConfiguration _configuration;
+    private readonly UserManager<ApplicationUser>
+        _userManager;
+
+    private readonly IConfiguration
+        _configuration;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         IConfiguration configuration)
     {
-        _userManager = userManager;
-        _configuration = configuration;
+        _userManager =
+            userManager;
+
+        _configuration =
+            configuration;
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // REGISTER
-    // Public registration is allowed only for:
-    // Student and Recruiter
     // POST: api/Auth/register
-    // --------------------------------------------------
+    //
+    // Public registration is intentionally restricted
+    // to Student and Recruiter.
+    //
+    // Admin and Placement Officer are system-managed
+    // accounts and cannot be self-registered.
+    // ==================================================
 
-    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(
         [FromBody] RegisterDto model)
     {
-        if (string.IsNullOrWhiteSpace(model.FullName))
+        if (string.IsNullOrWhiteSpace(
+            model.FullName))
         {
             return BadRequest(new
             {
-                message = "Full name is required."
+                message =
+                    "Full name is required."
             });
         }
 
-        if (string.IsNullOrWhiteSpace(model.Email))
+        if (string.IsNullOrWhiteSpace(
+            model.Email))
         {
             return BadRequest(new
             {
-                message = "Email is required."
+                message =
+                    "Email is required."
             });
         }
 
-        if (string.IsNullOrWhiteSpace(model.Password))
+        if (string.IsNullOrWhiteSpace(
+            model.Password))
         {
             return BadRequest(new
             {
-                message = "Password is required."
+                message =
+                    "Password is required."
             });
         }
 
-        if (string.IsNullOrWhiteSpace(model.Role))
+        if (string.IsNullOrWhiteSpace(
+            model.Role))
         {
             return BadRequest(new
             {
-                message = "Role is required."
+                message =
+                    "Role is required."
             });
         }
 
-        model.FullName = model.FullName.Trim();
+        // --------------------------------------------------
+        // SECURITY:
+        // Never allow public registration of privileged
+        // system roles.
+        // --------------------------------------------------
 
-        model.Email =
-            model.Email.Trim().ToLowerInvariant();
-
-        // Only these roles can self-register.
-        string[] publicRoles =
+        string[] allowedPublicRoles =
         {
             "Student",
             "Recruiter"
         };
 
-        var normalizedRole =
-            publicRoles.FirstOrDefault(role =>
-                string.Equals(
-                    role,
-                    model.Role.Trim(),
-                    StringComparison.OrdinalIgnoreCase));
+        var validRole =
+            allowedPublicRoles
+                .FirstOrDefault(role =>
+                    string.Equals(
+                        role,
+                        model.Role.Trim(),
+                        StringComparison
+                            .OrdinalIgnoreCase));
 
-        if (normalizedRole == null)
+        if (validRole == null)
         {
             return BadRequest(new
             {
                 message =
-                    "Public registration is allowed only for Student or Recruiter."
+                    "Public registration is available only for Student and Recruiter accounts."
             });
         }
 
-        var userExists =
-            await _userManager.FindByEmailAsync(
-                model.Email);
+        var normalizedEmail =
+            model.Email
+                .Trim()
+                .ToLowerInvariant();
 
-        if (userExists != null)
+        var existingUser =
+            await _userManager
+                .FindByEmailAsync(
+                    normalizedEmail);
+
+        if (existingUser != null)
         {
             return BadRequest(new
             {
                 message =
-                    "A user with this email already exists."
+                    "An account with this email already exists."
             });
         }
 
-        var user = new ApplicationUser
-        {
-            FullName = model.FullName,
-            UserName = model.Email,
-            Email = model.Email
-        };
+        var user =
+            new ApplicationUser
+            {
+                FullName =
+                    model.FullName.Trim(),
+
+                UserName =
+                    normalizedEmail,
+
+                Email =
+                    normalizedEmail,
+
+                EmailConfirmed =
+                    true
+            };
 
         var result =
-            await _userManager.CreateAsync(
-                user,
-                model.Password);
+            await _userManager
+                .CreateAsync(
+                    user,
+                    model.Password);
 
         if (!result.Succeeded)
         {
+            var errors =
+                result.Errors
+                    .Select(e =>
+                        e.Description)
+                    .ToList();
+
             return BadRequest(new
             {
-                message = "Registration failed.",
-                errors = result.Errors.Select(e =>
-                    e.Description)
+                message =
+                    errors.FirstOrDefault()
+                    ?? "Registration failed.",
+
+                errors
             });
         }
 
         var roleResult =
-            await _userManager.AddToRoleAsync(
-                user,
-                normalizedRole);
+            await _userManager
+                .AddToRoleAsync(
+                    user,
+                    validRole);
 
         if (!roleResult.Succeeded)
         {
-            // Remove user if role assignment fails
-            await _userManager.DeleteAsync(user);
+            // Avoid leaving an account without
+            // its intended role.
+            await _userManager
+                .DeleteAsync(user);
+
+            var errors =
+                roleResult.Errors
+                    .Select(e =>
+                        e.Description)
+                    .ToList();
 
             return BadRequest(new
             {
                 message =
-                    "Registration failed while assigning user role.",
-                errors = roleResult.Errors.Select(e =>
-                    e.Description)
+                    "Unable to assign account role.",
+
+                errors
             });
         }
 
         return Ok(new
         {
-            message = "Registration successful.",
-            role = normalizedRole
+            message =
+                "Registration successful."
         });
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // LOGIN
     // POST: api/Auth/login
-    // --------------------------------------------------
+    // ==================================================
 
-    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         [FromBody] LoginDto model)
     {
-        if (string.IsNullOrWhiteSpace(model.Email) ||
-            string.IsNullOrWhiteSpace(model.Password))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Email and password are required."
-            });
-        }
-
-        var email =
-            model.Email.Trim().ToLowerInvariant();
-
-        var user =
-            await _userManager.FindByEmailAsync(
-                email);
-
-        if (user == null)
+        if (string.IsNullOrWhiteSpace(
+            model.Email) ||
+            string.IsNullOrWhiteSpace(
+                model.Password))
         {
             return Unauthorized(new
             {
                 message =
                     "Invalid email or password."
+            });
+        }
+
+        var normalizedEmail =
+            model.Email
+                .Trim()
+                .ToLowerInvariant();
+
+        var user =
+            await _userManager
+                .FindByEmailAsync(
+                    normalizedEmail);
+
+        if (user == null)
+        {
+            // Do not reveal whether the email exists.
+            return Unauthorized(new
+            {
+                message =
+                    "Invalid email or password."
+            });
+        }
+
+        // --------------------------------------------------
+        // LOCKOUT CHECK
+        // --------------------------------------------------
+
+        if (await _userManager
+                .IsLockedOutAsync(user))
+        {
+            var lockoutEnd =
+                await _userManager
+                    .GetLockoutEndDateAsync(
+                        user);
+
+            return Unauthorized(new
+            {
+                message =
+                    "Account temporarily locked due to multiple failed login attempts. Please try again later.",
+
+                lockoutEnd
             });
         }
 
         var validPassword =
-            await _userManager.CheckPasswordAsync(
-                user,
-                model.Password);
+            await _userManager
+                .CheckPasswordAsync(
+                    user,
+                    model.Password);
 
         if (!validPassword)
         {
+            await _userManager
+                .AccessFailedAsync(user);
+
+            if (await _userManager
+                    .IsLockedOutAsync(user))
+            {
+                return Unauthorized(new
+                {
+                    message =
+                        "Account temporarily locked due to multiple failed login attempts. Please try again later."
+                });
+            }
+
             return Unauthorized(new
             {
                 message =
@@ -207,23 +298,41 @@ public class AuthController : ControllerBase
             });
         }
 
+        // Successful login resets failures.
+        await _userManager
+            .ResetAccessFailedCountAsync(
+                user);
+
         var roles =
-            await _userManager.GetRolesAsync(user);
+            await _userManager
+                .GetRolesAsync(user);
 
-        var claims = new List<Claim>
-        {
-            new(
-                ClaimTypes.NameIdentifier,
-                user.Id),
+        // --------------------------------------------------
+        // JWT CLAIMS
+        //
+        // NameIdentifier is CRITICAL because Student and
+        // Recruiter ownership checks use it.
+        // --------------------------------------------------
 
-            new(
-                ClaimTypes.Name,
-                user.FullName),
+        var claims =
+            new List<Claim>
+            {
+                new(
+                    ClaimTypes.NameIdentifier,
+                    user.Id),
 
-            new(
-                ClaimTypes.Email,
-                user.Email ?? string.Empty)
-        };
+                new(
+                    ClaimTypes.Name,
+                    user.FullName),
+
+                new(
+                    ClaimTypes.Email,
+                    user.Email ?? string.Empty),
+
+                new(
+                    JwtRegisteredClaimNames.Jti,
+                    Guid.NewGuid().ToString())
+            };
 
         foreach (var role in roles)
         {
@@ -236,23 +345,11 @@ public class AuthController : ControllerBase
         var jwtKey =
             _configuration["Jwt:Key"];
 
-        var jwtIssuer =
-            _configuration["Jwt:Issuer"];
-
-        var jwtAudience =
-            _configuration["Jwt:Audience"];
-
-        if (string.IsNullOrWhiteSpace(jwtKey) ||
-            string.IsNullOrWhiteSpace(jwtIssuer) ||
-            string.IsNullOrWhiteSpace(jwtAudience))
+        if (string.IsNullOrWhiteSpace(
+            jwtKey))
         {
-            return StatusCode(
-                StatusCodes.Status500InternalServerError,
-                new
-                {
-                    message =
-                        "JWT configuration is incomplete."
-                });
+            throw new InvalidOperationException(
+                "JWT key is missing from configuration.");
         }
 
         var key =
@@ -263,32 +360,52 @@ public class AuthController : ControllerBase
         var credentials =
             new SigningCredentials(
                 key,
-                SecurityAlgorithms.HmacSha256);
+                SecurityAlgorithms
+                    .HmacSha256);
+
+        var expiresAt =
+            DateTime.UtcNow
+                .AddHours(2);
 
         var token =
             new JwtSecurityToken(
-                issuer: jwtIssuer,
-                audience: jwtAudience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
-                signingCredentials: credentials);
+                issuer:
+                    _configuration[
+                        "Jwt:Issuer"],
 
-        var tokenString =
+                audience:
+                    _configuration[
+                        "Jwt:Audience"],
+
+                claims:
+                    claims,
+
+                expires:
+                    expiresAt,
+
+                signingCredentials:
+                    credentials);
+
+        var writtenToken =
             new JwtSecurityTokenHandler()
                 .WriteToken(token);
 
         return Ok(new
         {
-            token = tokenString,
+            token =
+                writtenToken,
 
-            expiresAt =
-                token.ValidTo,
+            expiresAt,
 
             user = new
             {
-                id = user.Id,
+                user.Id,
+
                 user.FullName,
-                user.Email,
+
+                email =
+                    user.Email,
+
                 roles
             }
         });

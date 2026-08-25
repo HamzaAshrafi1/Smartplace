@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPlace.API.Data;
@@ -13,84 +14,112 @@ public class PlacementsController : ControllerBase
 {
     private readonly SmartPlaceDbContext _context;
 
-    public PlacementsController(SmartPlaceDbContext context)
+    public PlacementsController(
+        SmartPlaceDbContext context)
     {
         _context = context;
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // GET ALL PLACEMENTS
     // Admin / Placement Officer
-    // GET: api/Placements
-    // --------------------------------------------------
+    // ==================================================
 
     [HttpGet]
-    [Authorize(Roles = "Admin,PlacementOfficer")]
-    public async Task<ActionResult<IEnumerable<Placement>>> GetPlacements()
+    [Authorize(
+        Roles = "Admin,PlacementOfficer")]
+    public async Task<ActionResult<IEnumerable<Placement>>>
+        GetPlacements()
     {
-        var placements = await _context.Placements
-            .Include(p => p.Student)
-            .Include(p => p.Company)
-            .OrderByDescending(p => p.PlacementId)
-            .ToListAsync();
+        var placements =
+            await _context.Placements
+                .Include(p => p.Student)
+                .ThenInclude(s => s!.Department)
+                .Include(p => p.Company)
+                .OrderByDescending(
+                    p => p.PlacementId)
+                .ToListAsync();
 
         return Ok(placements);
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // GET PLACEMENT BY ID
-    // Admin / Placement Officer / Student
-    // GET: api/Placements/1
-    // --------------------------------------------------
+    // ==================================================
 
-    [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,PlacementOfficer,Student")]
-    public async Task<ActionResult<Placement>> GetPlacement(int id)
+    [HttpGet("{id:int}")]
+    [Authorize(
+        Roles = "Admin,PlacementOfficer,Student")]
+    public async Task<IActionResult>
+        GetPlacement(int id)
     {
-        var placement = await _context.Placements
-            .Include(p => p.Student)
-            .Include(p => p.Company)
-            .FirstOrDefaultAsync(
-                p => p.PlacementId == id);
+        var placement =
+            await _context.Placements
+                .Include(p => p.Student)
+                .ThenInclude(s => s!.Department)
+                .Include(p => p.Company)
+                .FirstOrDefaultAsync(
+                    p => p.PlacementId == id);
 
         if (placement == null)
         {
             return NotFound(new
             {
-                message = "Placement record not found."
+                message =
+                    "Placement record not found."
             });
+        }
+
+        if (User.IsInRole("Student") &&
+            !OwnsStudent(
+                placement.Student))
+        {
+            return Forbid();
         }
 
         return Ok(placement);
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // GET PLACEMENT BY STUDENT
-    // Admin / Placement Officer / Student
-    // GET: api/Placements/student/1
-    // --------------------------------------------------
+    // ==================================================
 
-    [HttpGet("student/{studentId}")]
-    [Authorize(Roles = "Admin,PlacementOfficer,Student")]
-    public async Task<ActionResult<Placement>> GetPlacementByStudent(
-        int studentId)
+    [HttpGet("student/{studentId:int}")]
+    [Authorize(
+        Roles = "Admin,PlacementOfficer,Student")]
+    public async Task<IActionResult>
+        GetPlacementByStudent(
+            int studentId)
     {
-        var studentExists = await _context.Students
-            .AnyAsync(s => s.StudentId == studentId);
+        var student =
+            await _context.Students
+                .FirstOrDefaultAsync(
+                    s => s.StudentId ==
+                         studentId);
 
-        if (!studentExists)
+        if (student == null)
         {
             return NotFound(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
-        var placement = await _context.Placements
-            .Include(p => p.Student)
-            .Include(p => p.Company)
-            .FirstOrDefaultAsync(
-                p => p.StudentId == studentId);
+        if (User.IsInRole("Student") &&
+            !OwnsStudent(student))
+        {
+            return Forbid();
+        }
+
+        var placement =
+            await _context.Placements
+                .Include(p => p.Student)
+                .ThenInclude(s => s!.Department)
+                .Include(p => p.Company)
+                .FirstOrDefaultAsync(
+                    p => p.StudentId ==
+                         studentId);
 
         if (placement == null)
         {
@@ -104,38 +133,45 @@ public class PlacementsController : ControllerBase
         return Ok(placement);
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // CREATE PLACEMENT
     // Admin / Placement Officer
-    // POST: api/Placements
-    // --------------------------------------------------
+    // ==================================================
 
     [HttpPost]
-    [Authorize(Roles = "Admin,PlacementOfficer")]
-    public async Task<ActionResult<Placement>> CreatePlacement(
-        Placement placement)
+    [Authorize(
+        Roles = "Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        CreatePlacement(
+            Placement placement)
     {
-        var studentExists = await _context.Students
-            .AnyAsync(
-                s => s.StudentId == placement.StudentId);
+        var student =
+            await _context.Students
+                .FirstOrDefaultAsync(
+                    s => s.StudentId ==
+                         placement.StudentId);
 
-        if (!studentExists)
+        if (student == null)
         {
             return BadRequest(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
-        var company = await _context.Companies
-            .FirstOrDefaultAsync(
-                c => c.CompanyId == placement.CompanyId);
+        var company =
+            await _context.Companies
+                .FirstOrDefaultAsync(
+                    c => c.CompanyId ==
+                         placement.CompanyId);
 
         if (company == null)
         {
             return BadRequest(new
             {
-                message = "Company not found."
+                message =
+                    "Company not found."
             });
         }
 
@@ -151,9 +187,40 @@ public class PlacementsController : ControllerBase
             });
         }
 
-        var alreadyPlaced = await _context.Placements
-            .AnyAsync(
-                p => p.StudentId == placement.StudentId);
+        // --------------------------------------------------
+        // Student must actually have been selected for
+        // a job belonging to this company.
+        // --------------------------------------------------
+
+        var selectedApplication =
+            await _context.Applications
+                .Include(a => a.Job)
+                .FirstOrDefaultAsync(a =>
+                    a.StudentId ==
+                        placement.StudentId
+                    &&
+                    a.Job != null
+                    &&
+                    a.Job.CompanyId ==
+                        placement.CompanyId
+                    &&
+                    a.Status ==
+                        "Selected");
+
+        if (selectedApplication == null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "This student has not been selected for a job at the specified company."
+            });
+        }
+
+        var alreadyPlaced =
+            await _context.Placements
+                .AnyAsync(p =>
+                    p.StudentId ==
+                    placement.StudentId);
 
         if (alreadyPlaced)
         {
@@ -173,41 +240,44 @@ public class PlacementsController : ControllerBase
             });
         }
 
-        // Placement status is controlled by the API
-        // when the record is first created.
-        placement.Status = "Placed";
+        placement.Status =
+            "Placed";
 
-        _context.Placements.Add(placement);
+        _context.Placements.Add(
+            placement);
 
         await _context.SaveChangesAsync();
 
-        var createdPlacement = await _context.Placements
-            .Include(p => p.Student)
-            .Include(p => p.Company)
-            .FirstAsync(
-                p => p.PlacementId ==
-                     placement.PlacementId);
+        var created =
+            await _context.Placements
+                .Include(p => p.Student)
+                .ThenInclude(s => s!.Department)
+                .Include(p => p.Company)
+                .FirstAsync(p =>
+                    p.PlacementId ==
+                    placement.PlacementId);
 
         return CreatedAtAction(
             nameof(GetPlacement),
             new
             {
-                id = createdPlacement.PlacementId
+                id =
+                    created.PlacementId
             },
-            createdPlacement);
+            created);
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // UPDATE PLACEMENT
-    // Admin / Placement Officer
-    // PUT: api/Placements/1
-    // --------------------------------------------------
+    // ==================================================
 
-    [HttpPut("{id}")]
-    [Authorize(Roles = "Admin,PlacementOfficer")]
-    public async Task<IActionResult> UpdatePlacement(
-        int id,
-        Placement placement)
+    [HttpPut("{id:int}")]
+    [Authorize(
+        Roles = "Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        UpdatePlacement(
+            int id,
+            Placement placement)
     {
         if (id != placement.PlacementId)
         {
@@ -218,39 +288,46 @@ public class PlacementsController : ControllerBase
             });
         }
 
-        var existingPlacement =
+        var existing =
             await _context.Placements
                 .FindAsync(id);
 
-        if (existingPlacement == null)
+        if (existing == null)
         {
             return NotFound(new
             {
-                message = "Placement record not found."
+                message =
+                    "Placement record not found."
             });
         }
 
-        var studentExists = await _context.Students
-            .AnyAsync(
-                s => s.StudentId == placement.StudentId);
+        var studentExists =
+            await _context.Students
+                .AnyAsync(s =>
+                    s.StudentId ==
+                    placement.StudentId);
 
         if (!studentExists)
         {
             return BadRequest(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
-        var company = await _context.Companies
-            .FirstOrDefaultAsync(
-                c => c.CompanyId == placement.CompanyId);
+        var company =
+            await _context.Companies
+                .FirstOrDefaultAsync(c =>
+                    c.CompanyId ==
+                    placement.CompanyId);
 
         if (company == null)
         {
             return BadRequest(new
             {
-                message = "Company not found."
+                message =
+                    "Company not found."
             });
         }
 
@@ -262,22 +339,7 @@ public class PlacementsController : ControllerBase
             return BadRequest(new
             {
                 message =
-                    "Placement can only belong to an approved company."
-            });
-        }
-
-        var duplicateStudentPlacement =
-            await _context.Placements
-                .AnyAsync(p =>
-                    p.PlacementId != id &&
-                    p.StudentId == placement.StudentId);
-
-        if (duplicateStudentPlacement)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Student already has another placement record."
+                    "Placement requires an approved company."
             });
         }
 
@@ -290,16 +352,6 @@ public class PlacementsController : ControllerBase
             });
         }
 
-        if (string.IsNullOrWhiteSpace(
-            placement.Status))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Placement status is required."
-            });
-        }
-
         string[] allowedStatuses =
         {
             "Placed",
@@ -309,37 +361,41 @@ public class PlacementsController : ControllerBase
         };
 
         var validStatus =
-            allowedStatuses.FirstOrDefault(s =>
-                string.Equals(
-                    s,
-                    placement.Status,
-                    StringComparison.OrdinalIgnoreCase));
+            allowedStatuses
+                .FirstOrDefault(value =>
+                    string.Equals(
+                        value,
+                        placement.Status,
+                        StringComparison
+                            .OrdinalIgnoreCase));
 
         if (validStatus == null)
         {
             return BadRequest(new
             {
-                message = "Invalid placement status.",
+                message =
+                    "Invalid placement status.",
+
                 allowedStatuses
             });
         }
 
-        existingPlacement.OfferedPackage =
+        existing.OfferedPackage =
             placement.OfferedPackage;
 
-        existingPlacement.JoiningDate =
+        existing.JoiningDate =
             placement.JoiningDate;
 
-        existingPlacement.Status =
+        existing.Status =
             validStatus;
 
-        existingPlacement.OfferLetterUrl =
+        existing.OfferLetterUrl =
             placement.OfferLetterUrl;
 
-        existingPlacement.StudentId =
+        existing.StudentId =
             placement.StudentId;
 
-        existingPlacement.CompanyId =
+        existing.CompanyId =
             placement.CompanyId;
 
         await _context.SaveChangesAsync();
@@ -347,31 +403,57 @@ public class PlacementsController : ControllerBase
         return NoContent();
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // DELETE PLACEMENT
-    // Admin
-    // DELETE: api/Placements/1
-    // --------------------------------------------------
+    // ==================================================
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> DeletePlacement(int id)
+    public async Task<IActionResult>
+        DeletePlacement(int id)
     {
-        var placement = await _context.Placements
-            .FindAsync(id);
+        var placement =
+            await _context.Placements
+                .FindAsync(id);
 
         if (placement == null)
         {
             return NotFound(new
             {
-                message = "Placement record not found."
+                message =
+                    "Placement record not found."
             });
         }
 
-        _context.Placements.Remove(placement);
+        _context.Placements.Remove(
+            placement);
 
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    // ==================================================
+    // OWNERSHIP
+    // ==================================================
+
+    private bool OwnsStudent(
+        Student? student)
+    {
+        if (student == null)
+        {
+            return false;
+        }
+
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        return
+            !string.IsNullOrWhiteSpace(
+                userId)
+            &&
+            student.ApplicationUserId ==
+            userId;
     }
 }

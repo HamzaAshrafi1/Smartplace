@@ -4,23 +4,28 @@
     ViewData["Title"] = "Login";
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-5">
+<div class="container py-5">
 
-            <div class="card shadow border-0">
-                <div class="card-body p-4">
+    <div class="row justify-content-center">
+
+        <div class="col-md-6 col-lg-5">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-body p-4 p-md-5">
 
                     <div class="text-center mb-4">
-                        <h2 class="fw-bold">SmartPlace</h2>
+
+                        <h2 class="fw-bold">
+                            Welcome Back
+                        </h2>
+
                         <p class="text-muted mb-0">
-                            College Placement Management System
+                            Sign in to your SmartPlace account.
                         </p>
+
                     </div>
 
-                    <h4 class="mb-3">
-                        Login
-                    </h4>
 
                     @if (TempData["Success"] != null)
                     {
@@ -29,6 +34,7 @@
                         </div>
                     }
 
+
                     @if (ViewBag.Error != null)
                     {
                         <div class="alert alert-danger">
@@ -36,26 +42,39 @@
                         </div>
                     }
 
-                    <form asp-action="Login"
-                          asp-controller="Account"
+
+                    <form asp-controller="Account"
+                          asp-action="Login"
                           method="post">
 
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3">
+                        </div>
+
+
                         <div class="mb-3">
+
                             <label asp-for="Email"
                                    class="form-label">
-                                Email
+                                Email Address
                             </label>
 
                             <input asp-for="Email"
+                                   type="email"
                                    class="form-control"
-                                   placeholder="Enter your email" />
+                                   autocomplete="email"
+                                   placeholder="name@example.com"
+                                   required />
 
                             <span asp-validation-for="Email"
                                   class="text-danger">
                             </span>
+
                         </div>
 
-                        <div class="mb-3">
+
+                        <div class="mb-4">
+
                             <label asp-for="Password"
                                    class="form-label">
                                 Password
@@ -64,23 +83,26 @@
                             <input asp-for="Password"
                                    type="password"
                                    class="form-control"
-                                   placeholder="Enter your password" />
+                                   autocomplete="current-password"
+                                   required />
 
                             <span asp-validation-for="Password"
                                   class="text-danger">
                             </span>
+
                         </div>
 
+
                         <button type="submit"
-                                class="btn btn-primary w-100">
+                                class="btn btn-primary w-100 py-2">
                             Login
                         </button>
 
                     </form>
 
-                    <hr class="my-4" />
 
-                    <div class="text-center">
+                    <div class="text-center mt-4">
+
                         <span class="text-muted">
                             Don't have an account?
                         </span>
@@ -90,11 +112,20 @@
                            class="text-decoration-none">
                             Register
                         </a>
+
                     </div>
 
                 </div>
+
             </div>
 
         </div>
+
     </div>
+
 </div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

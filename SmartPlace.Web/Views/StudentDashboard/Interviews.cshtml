@@ -1,0 +1,184 @@
+﻿@model List<SmartPlace.Web.Services.StudentInterviewItem>
+
+@{
+    ViewData["Title"] = "Interviews";
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">
+                My Interviews
+            </h2>
+
+            <p class="text-muted mb-0">
+                Upcoming interview rounds, results and instructions.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Dashboard
+        </a>
+
+    </div>
+
+
+    @if (Model.Count == 0)
+    {
+        <div class="card border-0 shadow-sm">
+
+            <div class="card-body text-center py-5">
+
+                <h5 class="fw-bold">
+                    No Interviews Scheduled
+                </h5>
+
+                <p class="text-muted mb-0">
+                    Interview rounds will appear here once scheduled.
+                </p>
+
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+
+            @foreach (var interview in Model)
+            {
+                <div class="col-lg-6">
+
+                    <div class="card border-0 shadow-sm h-100">
+
+                        <div class="card-body p-4">
+
+                            <div class="d-flex justify-content-between mb-3">
+
+                                <div>
+                                    <h4 class="fw-bold mb-1">
+                                        @interview.RoundName
+                                    </h4>
+
+                                    <div class="text-muted">
+                                        @interview.JobTitle
+                                        ·
+                                        @interview.CompanyName
+                                    </div>
+                                </div>
+
+                                <span class="badge bg-primary">
+                                    @interview.Status
+                                </span>
+
+                            </div>
+
+
+                            <div class="mb-3">
+
+                                <small class="text-muted">
+                                    Scheduled
+                                </small>
+
+                                <div class="fw-semibold">
+                                    @interview.ScheduledDate
+                                    .ToLocalTime()
+                                    .ToString(
+                                    "dd MMM yyyy, hh:mm tt")
+                                </div>
+
+                            </div>
+
+
+                            <div class="mb-3">
+
+                                <small class="text-muted">
+                                    Mode
+                                </small>
+
+                                <div class="fw-semibold">
+                                    @interview.Mode
+                                </div>
+
+                            </div>
+
+
+                            @if (!string.IsNullOrWhiteSpace(
+                                interview.LocationOrLink))
+                            {
+                                <div class="mb-3">
+
+                                    <small class="text-muted">
+                                        Location / Link
+                                    </small>
+
+                                    <div>
+                                        @if (interview.LocationOrLink
+                                            .StartsWith(
+                                                "http",
+                                                StringComparison
+                                                    .OrdinalIgnoreCase))
+                                        {
+                                            <a href="@interview.LocationOrLink"
+                                               target="_blank"
+                                               rel="noopener noreferrer">
+                                                Open Interview Link
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            @interview.LocationOrLink
+                                        }
+                                    </div>
+
+                                </div>
+                            }
+
+
+                            @if (!string.IsNullOrWhiteSpace(
+                                interview.Result))
+                            {
+                                <div class="mb-3">
+
+                                    <small class="text-muted">
+                                        Result
+                                    </small>
+
+                                    <div class="fw-bold">
+                                        @interview.Result
+                                    </div>
+
+                                </div>
+                            }
+
+
+                            @if (!string.IsNullOrWhiteSpace(
+                                interview.Remarks))
+                            {
+                                <div>
+
+                                    <small class="text-muted">
+                                        Remarks
+                                    </small>
+
+                                    <div>
+                                        @interview.Remarks
+                                    </div>
+
+                                </div>
+                            }
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>

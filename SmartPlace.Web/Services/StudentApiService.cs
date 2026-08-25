@@ -17,9 +17,9 @@ public class StudentApiService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    // --------------------------------------------------
-    // CREATE AUTHENTICATED API CLIENT
-    // --------------------------------------------------
+    // ==================================================
+    // AUTHENTICATED API CLIENT
+    // ==================================================
 
     private HttpClient CreateClient()
     {
@@ -41,17 +41,18 @@ public class StudentApiService
         return client;
     }
 
-    // --------------------------------------------------
-    // GET MY STUDENT PROFILE
-    // GET: api/Students/me
-    // --------------------------------------------------
+    // ==================================================
+    // PROFILE
+    // ==================================================
 
-    public async Task<StudentProfile?> GetMyProfileAsync()
+    public async Task<StudentProfile?>
+        GetMyProfileAsync()
     {
         var client = CreateClient();
 
         var response =
-            await client.GetAsync("api/Students/me");
+            await client.GetAsync(
+                "api/Students/me");
 
         if (!response.IsSuccessStatusCode)
         {
@@ -62,13 +63,9 @@ public class StudentApiService
             .ReadFromJsonAsync<StudentProfile>();
     }
 
-    // --------------------------------------------------
-    // CREATE / UPDATE MY PROFILE
-    // PUT: api/Students/me
-    // --------------------------------------------------
-
-    public async Task<bool> SaveMyProfileAsync(
-        StudentProfileRequest request)
+    public async Task<ApiActionResult>
+        SaveMyProfileAsync(
+            StudentProfileRequest request)
     {
         var client = CreateClient();
 
@@ -77,12 +74,33 @@ public class StudentApiService
                 "api/Students/me",
                 request);
 
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            return new ApiActionResult
+            {
+                Success = true,
+                Message =
+                    "Profile saved successfully."
+            };
+        }
+
+        var body =
+            await response.Content
+                .ReadAsStringAsync();
+
+        return new ApiActionResult
+        {
+            Success = false,
+            Message =
+                ExtractApiMessage(
+                    body,
+                    "Unable to save profile.")
+        };
     }
 
-    // --------------------------------------------------
-    // GET DEPARTMENTS
-    // --------------------------------------------------
+    // ==================================================
+    // DEPARTMENTS
+    // ==================================================
 
     public async Task<List<DepartmentItem>>
         GetDepartmentsAsync()
@@ -90,30 +108,56 @@ public class StudentApiService
         var client = CreateClient();
 
         var response =
-            await client.GetAsync("api/Departments");
+            await client.GetAsync(
+                "api/Departments");
 
         if (!response.IsSuccessStatusCode)
         {
-            return new List<DepartmentItem>();
+            return new();
         }
 
         return await response.Content
-            .ReadFromJsonAsync<List<DepartmentItem>>()
-            ?? new List<DepartmentItem>();
+            .ReadFromJsonAsync<
+                List<DepartmentItem>>()
+            ?? new();
     }
 
-    // --------------------------------------------------
-    // GET MY RESUME
-    // GET: api/Resumes/me
-    // --------------------------------------------------
+    // ==================================================
+    // STUDENT JOB ELIGIBILITY
+    // GET api/Jobs/student/{id}/eligibility
+    // ==================================================
 
-    public async Task<ResumeInfo?> GetResumeAsync(
-        int studentId)
+    public async Task<StudentJobsResponse?>
+        GetStudentJobsAsync(
+            int studentId)
     {
         var client = CreateClient();
 
         var response =
-            await client.GetAsync("api/Resumes/me");
+            await client.GetAsync(
+                $"api/Jobs/student/{studentId}/eligibility");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<StudentJobsResponse>();
+    }
+
+    // ==================================================
+    // RESUME
+    // ==================================================
+
+    public async Task<ResumeInfo?>
+        GetResumeAsync(int studentId)
+    {
+        var client = CreateClient();
+
+        var response =
+            await client.GetAsync(
+                "api/Resumes/me");
 
         if (!response.IsSuccessStatusCode)
         {
@@ -124,14 +168,10 @@ public class StudentApiService
             .ReadFromJsonAsync<ResumeInfo>();
     }
 
-    // --------------------------------------------------
-    // UPLOAD / REPLACE RESUME
-    // POST: api/Resumes/upload/{studentId}
-    // --------------------------------------------------
-
-    public async Task<ApiActionResult> UploadResumeAsync(
-        int studentId,
-        IFormFile file)
+    public async Task<ApiActionResult>
+        UploadResumeAsync(
+            int studentId,
+            IFormFile file)
     {
         var client = CreateClient();
 
@@ -146,7 +186,8 @@ public class StudentApiService
 
         fileContent.Headers.ContentType =
             new MediaTypeHeaderValue(
-                string.IsNullOrWhiteSpace(file.ContentType)
+                string.IsNullOrWhiteSpace(
+                    file.ContentType)
                     ? "application/pdf"
                     : file.ContentType);
 
@@ -170,24 +211,20 @@ public class StudentApiService
             };
         }
 
-        var error =
-            await response.Content
-                .ReadAsStringAsync();
-
         return new ApiActionResult
         {
             Success = false,
             Message =
                 ExtractApiMessage(
-                    error,
+                    await response.Content
+                        .ReadAsStringAsync(),
                     "Resume upload failed.")
         };
     }
 
-    // --------------------------------------------------
-    // EXTRACT SKILLS
-    // POST: api/AI/extract-skills/{studentId}
-    // --------------------------------------------------
+    // ==================================================
+    // SKILLS
+    // ==================================================
 
     public async Task<SkillExtractionResult?>
         ExtractSkillsAsync(int studentId)
@@ -205,16 +242,17 @@ public class StudentApiService
         }
 
         return await response.Content
-            .ReadFromJsonAsync<SkillExtractionResult>();
+            .ReadFromJsonAsync<
+                SkillExtractionResult>();
     }
 
-    // --------------------------------------------------
-    // AI JOB RECOMMENDATIONS
-    // GET: api/AI/recommend-jobs/{studentId}
-    // --------------------------------------------------
+    // ==================================================
+    // AI RECOMMENDATIONS
+    // ==================================================
 
     public async Task<JobRecommendationResponse?>
-        GetJobRecommendationsAsync(int studentId)
+        GetJobRecommendationsAsync(
+            int studentId)
     {
         var client = CreateClient();
 
@@ -228,16 +266,17 @@ public class StudentApiService
         }
 
         return await response.Content
-            .ReadFromJsonAsync<JobRecommendationResponse>();
+            .ReadFromJsonAsync<
+                JobRecommendationResponse>();
     }
 
-    // --------------------------------------------------
-    // GET MY APPLICATIONS
-    // GET: api/Applications/student/{studentId}
-    // --------------------------------------------------
+    // ==================================================
+    // APPLICATIONS
+    // ==================================================
 
     public async Task<List<StudentApplicationItem>>
-        GetMyApplicationsAsync(int studentId)
+        GetMyApplicationsAsync(
+            int studentId)
     {
         var client = CreateClient();
 
@@ -247,35 +286,30 @@ public class StudentApiService
 
         if (!response.IsSuccessStatusCode)
         {
-            return new List<StudentApplicationItem>();
+            return new();
         }
 
         return await response.Content
-            .ReadFromJsonAsync<List<StudentApplicationItem>>()
-            ?? new List<StudentApplicationItem>();
+            .ReadFromJsonAsync<
+                List<StudentApplicationItem>>()
+            ?? new();
     }
 
-    // --------------------------------------------------
-    // APPLY FOR JOB
-    // POST: api/Applications
-    // --------------------------------------------------
-
-    public async Task<ApiActionResult> ApplyForJobAsync(
-        int studentId,
-        int jobId)
+    public async Task<ApiActionResult>
+        ApplyForJobAsync(
+            int studentId,
+            int jobId)
     {
         var client = CreateClient();
-
-        var request = new
-        {
-            StudentId = studentId,
-            JobId = jobId
-        };
 
         var response =
             await client.PostAsJsonAsync(
                 "api/Applications",
-                request);
+                new
+                {
+                    StudentId = studentId,
+                    JobId = jobId
+                });
 
         if (response.IsSuccessStatusCode)
         {
@@ -287,7 +321,7 @@ public class StudentApiService
             };
         }
 
-        var error =
+        var body =
             await response.Content
                 .ReadAsStringAsync();
 
@@ -296,20 +330,108 @@ public class StudentApiService
             Success = false,
             Message =
                 ExtractApiMessage(
-                    error,
+                    body,
                     "Unable to submit application.")
         };
     }
 
-    // --------------------------------------------------
-    // READ API ERROR MESSAGE
-    // --------------------------------------------------
+    // ==================================================
+    // INTERVIEWS
+    // ==================================================
 
-    private static string ExtractApiMessage(
-        string responseBody,
-        string fallback)
+    public async Task<List<StudentInterviewItem>>
+        GetMyInterviewsAsync(
+            int studentId)
     {
-        if (string.IsNullOrWhiteSpace(responseBody))
+        var applications =
+            await GetMyApplicationsAsync(
+                studentId);
+
+        var result =
+            new List<StudentInterviewItem>();
+
+        var client = CreateClient();
+
+        foreach (var application
+                 in applications)
+        {
+            var response =
+                await client.GetAsync(
+                    $"api/InterviewRounds/application/{application.ApplicationId}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                continue;
+            }
+
+            var interviews =
+                await response.Content
+                    .ReadFromJsonAsync<
+                        List<StudentInterviewItem>>();
+
+            if (interviews == null)
+            {
+                continue;
+            }
+
+            foreach (var interview
+                     in interviews)
+            {
+                interview.JobTitle =
+                    application.Job?.Title
+                    ?? "Job";
+
+                interview.CompanyName =
+                    application.Job?
+                        .Company?.Name
+                    ?? "Company";
+            }
+
+            result.AddRange(
+                interviews);
+        }
+
+        return result
+            .OrderBy(i =>
+                i.ScheduledDate)
+            .ToList();
+    }
+
+    // ==================================================
+    // PLACEMENT
+    // ==================================================
+
+    public async Task<StudentPlacementInfo?>
+        GetMyPlacementAsync(
+            int studentId)
+    {
+        var client = CreateClient();
+
+        var response =
+            await client.GetAsync(
+                $"api/Placements/student/{studentId}");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<
+                StudentPlacementInfo>();
+    }
+
+    // ==================================================
+    // ERROR PARSER
+    // ==================================================
+
+    private static string
+        ExtractApiMessage(
+            string body,
+            string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(
+            body))
         {
             return fallback;
         }
@@ -317,9 +439,10 @@ public class StudentApiService
         try
         {
             using var document =
-                JsonDocument.Parse(responseBody);
+                JsonDocument.Parse(body);
 
-            if (document.RootElement.TryGetProperty(
+            if (document.RootElement
+                .TryGetProperty(
                     "message",
                     out var message))
             {
@@ -329,7 +452,6 @@ public class StudentApiService
         }
         catch
         {
-            // Ignore malformed API error response.
         }
 
         return fallback;
@@ -338,7 +460,7 @@ public class StudentApiService
 
 
 // ==================================================
-// FRONTEND MODELS
+// PROFILE
 // ==================================================
 
 public class StudentProfile
@@ -352,6 +474,12 @@ public class StudentProfile
 
     public string Email { get; set; } =
         string.Empty;
+
+    public decimal TenthPercentage
+    { get; set; }
+
+    public decimal TwelfthPercentage
+    { get; set; }
 
     public decimal CGPA { get; set; }
 
@@ -369,6 +497,12 @@ public class StudentProfile
 
 public class StudentProfileRequest
 {
+    public decimal TenthPercentage
+    { get; set; }
+
+    public decimal TwelfthPercentage
+    { get; set; }
+
     public decimal CGPA { get; set; }
 
     public int Backlogs { get; set; }
@@ -378,6 +512,11 @@ public class StudentProfileRequest
     public int DepartmentId { get; set; }
 }
 
+
+// ==================================================
+// DEPARTMENT
+// ==================================================
+
 public class DepartmentItem
 {
     public int DepartmentId { get; set; }
@@ -385,6 +524,96 @@ public class DepartmentItem
     public string Name { get; set; } =
         string.Empty;
 }
+
+
+// ==================================================
+// JOB ELIGIBILITY
+// ==================================================
+
+public class StudentJobsResponse
+{
+    public int TotalJobs { get; set; }
+
+    public int EligibleCount { get; set; }
+
+    public int NotEligibleCount { get; set; }
+
+    public List<StudentJobItem> Jobs
+    { get; set; } = new();
+}
+
+public class StudentJobItem
+{
+    public int JobId { get; set; }
+
+    public string Title { get; set; } =
+        string.Empty;
+
+    public string? Company { get; set; }
+
+    public decimal Package { get; set; }
+
+    public string? Location { get; set; }
+
+    public string? EmploymentType
+    { get; set; }
+
+    public DateTime? ApplicationDeadline
+    { get; set; }
+
+    public bool Eligible { get; set; }
+
+    public JobRequirementInfo Requirements
+    { get; set; } = new();
+
+    public StudentAcademicValues StudentValues
+    { get; set; } = new();
+
+    public List<string> Reasons
+    { get; set; } = new();
+}
+
+public class JobRequirementInfo
+{
+    public string? Department { get; set; }
+
+    public decimal MinimumTenthPercentage
+    { get; set; }
+
+    public decimal MinimumTwelfthPercentage
+    { get; set; }
+
+    public decimal MinimumCGPA
+    { get; set; }
+
+    public int MaximumBacklogs
+    { get; set; }
+
+    public int GraduationYear
+    { get; set; }
+}
+
+public class StudentAcademicValues
+{
+    public string? Department { get; set; }
+
+    public decimal TenthPercentage
+    { get; set; }
+
+    public decimal TwelfthPercentage
+    { get; set; }
+
+    public decimal CGPA { get; set; }
+
+    public int Backlogs { get; set; }
+
+    public int GraduationYear { get; set; }
+}
+
+
+// ==================================================
+// RESUME
+// ==================================================
 
 public class ResumeInfo
 {
@@ -406,23 +635,35 @@ public class ResumeInfo
     public int StudentId { get; set; }
 }
 
+
+// ==================================================
+// SKILLS
+// ==================================================
+
 public class SkillExtractionResult
 {
     public int StudentId { get; set; }
 
-    public List<string> DetectedSkills { get; set; } =
-        new();
+    public List<string> DetectedSkills
+    { get; set; } = new();
 
-    public List<string> NewlyAddedSkills { get; set; } =
-        new();
+    public List<string> NewlyAddedSkills
+    { get; set; } = new();
 
-    public int TotalSkillsDetected { get; set; }
+    public int TotalSkillsDetected
+    { get; set; }
 
-    public int TotalStudentSkills { get; set; }
+    public int TotalStudentSkills
+    { get; set; }
 
-    public List<string> StudentSkills { get; set; } =
-        new();
+    public List<string> StudentSkills
+    { get; set; } = new();
 }
+
+
+// ==================================================
+// GENERIC API RESULT
+// ==================================================
 
 public class ApiActionResult
 {
@@ -432,21 +673,30 @@ public class ApiActionResult
         string.Empty;
 }
 
-// --------------------------------------------------
-// JOB RECOMMENDATION RESPONSE
-// --------------------------------------------------
+
+// ==================================================
+// AI RECOMMENDATIONS
+// ==================================================
 
 public class JobRecommendationResponse
 {
-    public RecommendedStudent Student { get; set; } =
-        new();
+    public RecommendedStudent Student
+    { get; set; } = new();
 
-    public List<string> StudentSkills { get; set; } =
-        new();
+    public List<string> StudentSkills
+    { get; set; } = new();
 
-    public int TotalJobsAnalyzed { get; set; }
+    public int TotalJobsAnalyzed
+    { get; set; }
 
-    public List<JobRecommendationItem> Recommendations
+    public int TotalPublishedJobs
+    { get; set; }
+
+    public int TotalEligibleJobs
+    { get; set; }
+
+    public List<JobRecommendationItem>
+        Recommendations
     { get; set; } = new();
 }
 
@@ -457,11 +707,19 @@ public class RecommendedStudent
     public string FullName { get; set; } =
         string.Empty;
 
+    public decimal TenthPercentage
+    { get; set; }
+
+    public decimal TwelfthPercentage
+    { get; set; }
+
     public decimal CGPA { get; set; }
 
     public int Backlogs { get; set; }
 
     public int GraduationYear { get; set; }
+
+    public string? Department { get; set; }
 }
 
 public class JobRecommendationItem
@@ -477,23 +735,27 @@ public class JobRecommendationItem
 
     public string? Location { get; set; }
 
-    public double MatchPercentage { get; set; }
+    public double MatchPercentage
+    { get; set; }
 
-    public bool AcademicallyEligible { get; set; }
+    public bool AcademicallyEligible
+    { get; set; }
 
-    public List<string> MatchingSkills { get; set; } =
-        new();
+    public List<string> MatchingSkills
+    { get; set; } = new();
 
-    public List<string> MissingSkills { get; set; } =
-        new();
+    public List<string> MissingSkills
+    { get; set; } = new();
 
-    public string Recommendation { get; set; } =
+    public string Recommendation
+    { get; set; } =
         string.Empty;
 }
 
-// --------------------------------------------------
-// STUDENT APPLICATION
-// --------------------------------------------------
+
+// ==================================================
+// APPLICATION
+// ==================================================
 
 public class StudentApplicationItem
 {
@@ -508,7 +770,10 @@ public class StudentApplicationItem
     public string Status { get; set; } =
         string.Empty;
 
-    public ApplicationJobInfo? Job { get; set; }
+    public string? Remarks { get; set; }
+
+    public ApplicationJobInfo? Job
+    { get; set; }
 }
 
 public class ApplicationJobInfo
@@ -525,11 +790,13 @@ public class ApplicationJobInfo
 
     public string? Location { get; set; }
 
-    public string? EmploymentType { get; set; }
+    public string? EmploymentType
+    { get; set; }
 
     public int CompanyId { get; set; }
 
-    public ApplicationCompanyInfo? Company { get; set; }
+    public ApplicationCompanyInfo? Company
+    { get; set; }
 }
 
 public class ApplicationCompanyInfo
@@ -538,4 +805,69 @@ public class ApplicationCompanyInfo
 
     public string Name { get; set; } =
         string.Empty;
+}
+
+
+// ==================================================
+// INTERVIEW
+// ==================================================
+
+public class StudentInterviewItem
+{
+    public int InterviewRoundId { get; set; }
+
+    public string RoundName { get; set; } =
+        string.Empty;
+
+    public DateTime ScheduledDate { get; set; }
+
+    public string Mode { get; set; } =
+        string.Empty;
+
+    public string? LocationOrLink
+    { get; set; }
+
+    public string Status { get; set; } =
+        string.Empty;
+
+    public string? Result { get; set; }
+
+    public string? Remarks { get; set; }
+
+    public int ApplicationId { get; set; }
+
+    public string JobTitle { get; set; } =
+        string.Empty;
+
+    public string CompanyName { get; set; } =
+        string.Empty;
+}
+
+
+// ==================================================
+// PLACEMENT
+// ==================================================
+
+public class StudentPlacementInfo
+{
+    public int PlacementId { get; set; }
+
+    public decimal OfferedPackage
+    { get; set; }
+
+    public DateTime? JoiningDate
+    { get; set; }
+
+    public string Status { get; set; } =
+        string.Empty;
+
+    public string? OfferLetterUrl
+    { get; set; }
+
+    public int StudentId { get; set; }
+
+    public int CompanyId { get; set; }
+
+    public ApplicationCompanyInfo? Company
+    { get; set; }
 }

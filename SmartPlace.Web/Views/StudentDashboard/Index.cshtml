@@ -2,6 +2,11 @@
 
 @{
     ViewData["Title"] = "Student Dashboard";
+
+    var academicProfileIncomplete =
+        ViewBag.AcademicProfileIncomplete
+        is bool value
+        && value;
 }
 
 <div class="container py-4">
@@ -20,10 +25,39 @@
         </div>
     }
 
-    <!-- Dashboard Header -->
+
+    @if (academicProfileIncomplete)
+    {
+        <div class="alert alert-warning
+            d-flex justify-content-between
+            align-items-center">
+
+            <div>
+
+                <strong>
+                    Academic profile incomplete
+                </strong>
+
+                <div class="small mt-1">
+                    Add your 10th and 12th percentages
+                    before checking placement eligibility.
+                </div>
+
+            </div>
+
+            <a asp-action="CompleteProfile"
+               class="btn btn-warning">
+                Complete Profile
+            </a>
+
+        </div>
+    }
+
+
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
+
             <h2 class="fw-bold mb-1">
                 Student Dashboard
             </h2>
@@ -31,10 +65,10 @@
             <p class="text-muted mb-0">
                 Welcome back, @Model.FullName
             </p>
+
         </div>
 
-        <a asp-controller="StudentDashboard"
-           asp-action="CompleteProfile"
+        <a asp-action="CompleteProfile"
            class="btn btn-outline-primary">
             Edit Profile
         </a>
@@ -42,17 +76,82 @@
     </div>
 
 
-    <!-- Academic Information -->
+    <!-- ACADEMIC SUMMARY -->
+
     <div class="row g-3 mb-4">
 
-        <!-- CGPA -->
-        <div class="col-md-3">
+        <div class="col-md-4 col-lg-2">
+
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
-                    <div class="text-muted small">
-                        CGPA
+                    <small class="text-muted">
+                        10th
+                    </small>
+
+                    <div class="fs-3 fw-bold">
+
+                        @if (Model.TenthPercentage > 0)
+                        {
+                            <span>
+                                @Model.TenthPercentage%
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-warning">
+                                Pending
+                            </span>
+                        }
+
                     </div>
+
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="col-md-4 col-lg-2">
+
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        12th
+                    </small>
+
+                    <div class="fs-3 fw-bold">
+
+                        @if (Model.TwelfthPercentage > 0)
+                        {
+                            <span>
+                                @Model.TwelfthPercentage%
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-warning">
+                                Pending
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="col-md-4 col-lg-2">
+
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        CGPA
+                    </small>
 
                     <div class="fs-3 fw-bold">
                         @Model.CGPA
@@ -60,16 +159,18 @@
 
                 </div>
             </div>
+
         </div>
 
-        <!-- Backlogs -->
-        <div class="col-md-3">
+
+        <div class="col-md-4 col-lg-2">
+
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
-                    <div class="text-muted small">
+                    <small class="text-muted">
                         Backlogs
-                    </div>
+                    </small>
 
                     <div class="fs-3 fw-bold">
                         @Model.Backlogs
@@ -77,16 +178,18 @@
 
                 </div>
             </div>
+
         </div>
 
-        <!-- Graduation Year -->
-        <div class="col-md-3">
+
+        <div class="col-md-4 col-lg-2">
+
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
-                    <div class="text-muted small">
+                    <small class="text-muted">
                         Graduation
-                    </div>
+                    </small>
 
                     <div class="fs-3 fw-bold">
                         @Model.GraduationYear
@@ -94,59 +197,100 @@
 
                 </div>
             </div>
+
         </div>
 
-        <!-- Department -->
-        <div class="col-md-3">
+
+        <div class="col-md-4 col-lg-2">
+
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
-                    <div class="text-muted small">
+                    <small class="text-muted">
                         Department
-                    </div>
+                    </small>
 
                     <div class="fw-bold mt-2">
-                        @(Model.Department ?? "Not Assigned")
+                        @(Model.Department
+                            ?? "Not Assigned")
                     </div>
 
                 </div>
             </div>
+
         </div>
 
     </div>
 
 
-    <!-- Student Features -->
+    <!-- FEATURES -->
+
     <div class="row g-4">
 
-        <!-- Resume & Skills -->
+
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
+
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
                     <h5 class="fw-bold">
-                        Resume & Skills
+                        Jobs & Eligibility
                     </h5>
 
                     <p class="text-muted">
-                        Upload your resume and let SmartPlace
-                        extract your skills automatically.
+                        Explore all published jobs and see
+                        exactly which ones you are eligible for.
                     </p>
 
-                    <a asp-controller="StudentDashboard"
-                       asp-action="Resume"
+                    @if (academicProfileIncomplete)
+                    {
+                        <a asp-action="CompleteProfile"
+                           class="btn btn-warning">
+                            Complete Academic Profile
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-action="Jobs"
+                           class="btn btn-primary">
+                            Explore Jobs
+                        </a>
+                    }
+
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="col-md-4">
+
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+
+                    <h5 class="fw-bold">
+                        Resume & AI Skills
+                    </h5>
+
+                    <p class="text-muted">
+                        Upload your resume and automatically
+                        extract technical skills for AI matching.
+                    </p>
+
+                    <a asp-action="Resume"
                        class="btn btn-primary">
                         Manage Resume
                     </a>
 
                 </div>
             </div>
+
         </div>
 
 
-        <!-- AI Job Recommendations -->
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
+
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
                     <h5 class="fw-bold">
@@ -154,24 +298,41 @@
                     </h5>
 
                     <p class="text-muted">
-                        Discover jobs ranked using your
-                        skills and academic eligibility.
+                        Rank academically eligible jobs
+                        according to your extracted skills.
                     </p>
 
-                    <a asp-controller="StudentDashboard"
-                       asp-action="Recommendations"
-                       class="btn btn-primary">
-                        Recommended Jobs
-                    </a>
+                    @if (academicProfileIncomplete)
+                    {
+                        <button class="btn btn-secondary"
+                                disabled>
+                            Complete Academic Profile
+                        </button>
+                    }
+                    else if (Model.Skills.Count == 0)
+                    {
+                        <a asp-action="Resume"
+                           class="btn btn-outline-primary">
+                            Extract Skills First
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-action="Jobs"
+                           class="btn btn-primary">
+                            View AI Matches
+                        </a>
+                    }
 
                 </div>
             </div>
+
         </div>
 
 
-        <!-- Applications -->
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
+
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
                     <h5 class="fw-bold">
@@ -179,24 +340,24 @@
                     </h5>
 
                     <p class="text-muted">
-                        Track your submitted job
-                        applications and current status.
+                        Track submitted applications and
+                        current recruitment status.
                     </p>
 
-                    <a asp-controller="StudentDashboard"
-                       asp-action="MyApplications"
+                    <a asp-action="MyApplications"
                        class="btn btn-outline-primary">
                         My Applications
                     </a>
 
                 </div>
             </div>
+
         </div>
 
 
-        <!-- Interviews -->
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
+
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
                     <h5 class="fw-bold">
@@ -204,60 +365,64 @@
                     </h5>
 
                     <p class="text-muted">
-                        Check upcoming interview rounds
-                        and results.
+                        View interview rounds, schedules,
+                        links and results.
                     </p>
 
-                    <a href="#"
+                    <a asp-action="Interviews"
                        class="btn btn-outline-primary">
-                        Interviews
+                        My Interviews
                     </a>
 
                 </div>
             </div>
+
         </div>
 
 
-        <!-- Placement -->
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
+
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
 
                     <h5 class="fw-bold">
-                        Placement Status
-                    </h5>
-
-                    <p class="text-muted">
-                        View your final placement and
-                        joining information.
-                    </p>
-
-                    <a href="#"
-                       class="btn btn-outline-primary">
                         Placement
+                    </h5>
+
+                    <p class="text-muted">
+                        View company, package, joining date
+                        and final placement status.
+                    </p>
+
+                    <a asp-action="Placement"
+                       class="btn btn-outline-primary">
+                        Placement Status
                     </a>
 
                 </div>
             </div>
+
         </div>
 
 
-        <!-- Skills -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
+        <div class="col-12">
+
+            <div class="card border-0 shadow-sm">
+
                 <div class="card-body">
 
                     <h5 class="fw-bold">
                         My Skills
                     </h5>
 
-                    @if (Model.Skills != null && Model.Skills.Count > 0)
+                    @if (Model.Skills.Count > 0)
                     {
                         <div class="d-flex flex-wrap gap-2 mt-3">
 
-                            @foreach (var skill in Model.Skills)
+                            @foreach (var skill
+                                      in Model.Skills)
                             {
-                                <span class="badge bg-secondary">
+                                <span class="badge bg-secondary p-2">
                                     @skill
                                 </span>
                             }
@@ -266,13 +431,15 @@
                     }
                     else
                     {
-                        <p class="text-muted">
-                            Upload a resume to extract skills.
+                        <p class="text-muted mb-0">
+                            Upload your resume to extract skills.
                         </p>
                     }
 
                 </div>
+
             </div>
+
         </div>
 
     </div>

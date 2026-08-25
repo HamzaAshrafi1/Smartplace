@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPlace.API.Data;
@@ -13,65 +14,50 @@ namespace SmartPlace.API.Controllers;
 public class StudentsController : ControllerBase
 {
     private readonly SmartPlaceDbContext _context;
+    private readonly UserManager<ApplicationUser>
+        _userManager;
 
-    public StudentsController(SmartPlaceDbContext context)
+    public StudentsController(
+        SmartPlaceDbContext context,
+        UserManager<ApplicationUser> userManager)
     {
         _context = context;
+        _userManager = userManager;
     }
 
-    // --------------------------------------------------
-    // GET ALL STUDENTS
-    // Admin / Placement Officer / Recruiter
-    // GET: api/Students
-    // --------------------------------------------------
-
-    [HttpGet]
-    [Authorize(Roles = "Admin,PlacementOfficer,Recruiter")]
-    public async Task<ActionResult<IEnumerable<Student>>> GetStudents()
-    {
-        var students = await _context.Students
-            .Include(s => s.Department)
-            .OrderBy(s => s.FullName)
-            .ToListAsync();
-
-        return Ok(students);
-    }
-
-    // --------------------------------------------------
-    // GET LOGGED-IN STUDENT PROFILE
-    // Student only
+    // ==================================================
+    // GET MY PROFILE
     // GET: api/Students/me
-    // --------------------------------------------------
+    // ==================================================
 
     [HttpGet("me")]
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> GetMyProfile()
     {
-        var userId = User.FindFirstValue(
-            ClaimTypes.NameIdentifier);
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrWhiteSpace(userId))
         {
-            return Unauthorized(new
-            {
-                message = "Unable to identify logged-in user."
-            });
+            return Unauthorized();
         }
 
-        var student = await _context.Students
-            .Include(s => s.Department)
-            .Include(s => s.StudentSkills)
+        var student =
+            await _context.Students
+                .Include(s => s.Department)
+                .Include(s => s.StudentSkills)
                 .ThenInclude(ss => ss.Skill)
-            .FirstOrDefaultAsync(
-                s => s.ApplicationUserId == userId);
+                .FirstOrDefaultAsync(s =>
+                    s.ApplicationUserId ==
+                    userId);
 
         if (student == null)
         {
             return NotFound(new
             {
-                profileExists = false,
                 message =
-                    "Student profile has not been completed yet."
+                    "Student profile not found."
             });
         }
 
@@ -80,266 +66,259 @@ public class StudentsController : ControllerBase
             profileExists = true,
 
             student.StudentId,
+
             student.FullName,
+
             student.Email,
+
+            student.TenthPercentage,
+
+            student.TwelfthPercentage,
+
             student.CGPA,
+
             student.Backlogs,
+
             student.GraduationYear,
+
             student.DepartmentId,
 
             department =
                 student.Department?.Name,
 
-            skills = student.StudentSkills
-                .Select(ss => ss.Skill.Name)
-                .OrderBy(name => name)
-                .ToList()
+            skills =
+                student.StudentSkills
+                    .Where(ss =>
+                        ss.Skill != null)
+                    .Select(ss =>
+                        ss.Skill!.Name)
+                    .OrderBy(name => name)
+                    .ToList()
         });
     }
 
-    // --------------------------------------------------
-    // CREATE OR UPDATE LOGGED-IN STUDENT PROFILE
-    // Student only
+    // ==================================================
+    // CREATE OR UPDATE MY PROFILE
     // PUT: api/Students/me
-    // --------------------------------------------------
+    // ==================================================
 
     [HttpPut("me")]
     [Authorize(Roles = "Student")]
-    public async Task<IActionResult> UpdateMyProfile(
-        Student student)
+    public async Task<IActionResult>
+        SaveMyProfile(
+            [FromBody]
+            StudentProfileRequest request)
     {
-        var userId = User.FindFirstValue(
-            ClaimTypes.NameIdentifier);
-
-        var userEmail = User.FindFirstValue(
-            ClaimTypes.Email);
-
-        var userName = User.FindFirstValue(
-            ClaimTypes.Name);
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrWhiteSpace(userId))
         {
-            return Unauthorized(new
-            {
-                message = "Unable to identify logged-in user."
-            });
+            return Unauthorized();
         }
 
-        if (student.CGPA < 0 ||
-            student.CGPA > 10)
+        var user =
+            await _userManager
+                .FindByIdAsync(userId);
+
+        if (user == null)
         {
-            return BadRequest(new
-            {
-                message =
-                    "CGPA must be between 0 and 10."
-            });
+            return Unauthorized();
         }
 
-        if (student.Backlogs < 0)
+        var validation =
+            await ValidateAcademicProfile(
+                request);
+
+        if (validation != null)
         {
-            return BadRequest(new
-            {
-                message =
-                    "Backlogs cannot be negative."
-            });
+            return validation;
         }
 
-        if (student.GraduationYear <
-                DateTime.UtcNow.Year - 10 ||
-            student.GraduationYear >
-                DateTime.UtcNow.Year + 10)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Invalid graduation year."
-            });
-        }
-
-        var departmentExists =
-            await _context.Departments
-                .AnyAsync(d =>
-                    d.DepartmentId ==
-                    student.DepartmentId);
-
-        if (!departmentExists)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Invalid DepartmentId. Department does not exist."
-            });
-        }
-
-        var existingStudent =
+        var existing =
             await _context.Students
-                .FirstOrDefaultAsync(
-                    s => s.ApplicationUserId ==
-                         userId);
+                .FirstOrDefaultAsync(s =>
+                    s.ApplicationUserId ==
+                    userId);
 
-        // --------------------------------------------------
-        // FIRST-TIME PROFILE CREATION
-        // --------------------------------------------------
-
-        if (existingStudent == null)
+        if (existing == null)
         {
-            if (string.IsNullOrWhiteSpace(userEmail))
+            var email =
+                user.Email?
+                    .Trim()
+                    .ToLowerInvariant();
+
+            if (string.IsNullOrWhiteSpace(
+                email))
             {
                 return BadRequest(new
                 {
                     message =
-                        "Logged-in account does not contain an email address."
+                        "Logged-in account does not have a valid email."
                 });
             }
 
-            var normalizedEmail =
-                userEmail.Trim().ToLowerInvariant();
-
-            var emailExists =
+            var duplicateEmail =
                 await _context.Students
                     .AnyAsync(s =>
-                        s.Email == normalizedEmail);
+                        s.Email == email);
 
-            if (emailExists)
+            if (duplicateEmail)
             {
                 return BadRequest(new
                 {
                     message =
-                        "A Student profile already exists with this email."
+                        "A student profile already exists with this email."
                 });
             }
 
-            var newStudent = new Student
-            {
-                FullName =
-                    string.IsNullOrWhiteSpace(userName)
-                        ? "Student"
-                        : userName.Trim(),
+            var student =
+                new Student
+                {
+                    FullName =
+                        user.FullName.Trim(),
 
-                Email = normalizedEmail,
+                    Email =
+                        email,
 
-                CGPA = student.CGPA,
+                    TenthPercentage =
+                        request.TenthPercentage,
 
-                Backlogs = student.Backlogs,
+                    TwelfthPercentage =
+                        request.TwelfthPercentage,
 
-                GraduationYear =
-                    student.GraduationYear,
+                    CGPA =
+                        request.CGPA,
 
-                DepartmentId =
-                    student.DepartmentId,
+                    Backlogs =
+                        request.Backlogs,
 
-                ApplicationUserId =
-                    userId
-            };
+                    GraduationYear =
+                        request.GraduationYear,
 
-            _context.Students.Add(newStudent);
+                    DepartmentId =
+                        request.DepartmentId,
 
-            await _context.SaveChangesAsync();
+                    ApplicationUserId =
+                        userId
+                };
 
-            var createdStudent =
-                await _context.Students
-                    .Include(s => s.Department)
-                    .FirstAsync(s =>
-                        s.StudentId ==
-                        newStudent.StudentId);
+            _context.Students.Add(
+                student);
+
+            await _context
+                .SaveChangesAsync();
 
             return Ok(new
             {
                 message =
                     "Student profile created successfully.",
 
-                createdStudent.StudentId,
-                createdStudent.FullName,
-                createdStudent.Email,
-                createdStudent.CGPA,
-                createdStudent.Backlogs,
-                createdStudent.GraduationYear,
-                createdStudent.DepartmentId,
-
-                department =
-                    createdStudent.Department?.Name
+                student.StudentId
             });
         }
 
-        // --------------------------------------------------
-        // EXISTING PROFILE UPDATE
-        // --------------------------------------------------
+        existing.TenthPercentage =
+            request.TenthPercentage;
 
-        existingStudent.CGPA =
-            student.CGPA;
+        existing.TwelfthPercentage =
+            request.TwelfthPercentage;
 
-        existingStudent.Backlogs =
-            student.Backlogs;
+        existing.CGPA =
+            request.CGPA;
 
-        existingStudent.GraduationYear =
-            student.GraduationYear;
+        existing.Backlogs =
+            request.Backlogs;
 
-        existingStudent.DepartmentId =
-            student.DepartmentId;
+        existing.GraduationYear =
+            request.GraduationYear;
 
-        // FullName and Email come from Identity account,
-        // not from arbitrary client input.
-        if (!string.IsNullOrWhiteSpace(userName))
-        {
-            existingStudent.FullName =
-                userName.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(userEmail))
-        {
-            existingStudent.Email =
-                userEmail.Trim()
-                    .ToLowerInvariant();
-        }
+        existing.DepartmentId =
+            request.DepartmentId;
 
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
             message =
-                "Student profile updated successfully."
+                "Student profile updated successfully.",
+
+            existing.StudentId
         });
     }
 
-    // --------------------------------------------------
-    // GET STUDENT BY ID
-    // Admin / Placement Officer / Recruiter
-    // Students must use /me
-    // GET: api/Students/1
-    // --------------------------------------------------
+    // ==================================================
+    // GET ALL STUDENTS
+    // ==================================================
+
+    [HttpGet]
+    [Authorize(
+        Roles =
+            "Admin,PlacementOfficer,Recruiter")]
+    public async Task<
+        ActionResult<IEnumerable<Student>>>
+        GetStudents()
+    {
+        var students =
+            await _context.Students
+                .Include(s => s.Department)
+                .Include(s => s.StudentSkills)
+                .ThenInclude(ss => ss.Skill)
+                .OrderBy(s => s.FullName)
+                .ToListAsync();
+
+        return Ok(students);
+    }
+
+    // ==================================================
+    // GET STUDENT
+    // ==================================================
 
     [HttpGet("{id:int}")]
     [Authorize(
-        Roles = "Admin,PlacementOfficer,Recruiter")]
-    public async Task<ActionResult<Student>> GetStudent(
-        int id)
+        Roles =
+            "Admin,PlacementOfficer,Recruiter,Student")]
+    public async Task<IActionResult>
+        GetStudent(int id)
     {
-        var student = await _context.Students
-            .Include(s => s.Department)
-            .FirstOrDefaultAsync(
-                s => s.StudentId == id);
+        var student =
+            await _context.Students
+                .Include(s => s.Department)
+                .Include(s => s.StudentSkills)
+                .ThenInclude(ss => ss.Skill)
+                .FirstOrDefaultAsync(s =>
+                    s.StudentId == id);
 
         if (student == null)
         {
             return NotFound(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
+        }
+
+        if (User.IsInRole("Student") &&
+            !OwnsStudent(student))
+        {
+            return Forbid();
         }
 
         return Ok(student);
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // CREATE STUDENT
-    // Admin / Placement Officer
-    // POST: api/Students
-    // --------------------------------------------------
+    // ADMIN / PLACEMENT OFFICER
+    // ==================================================
 
     [HttpPost]
-    [Authorize(Roles = "Admin,PlacementOfficer")]
-    public async Task<ActionResult<Student>> CreateStudent(
-        Student student)
+    [Authorize(
+        Roles = "Admin,PlacementOfficer")]
+    public async Task<IActionResult>
+        CreateStudent(
+            Student student)
     {
         if (string.IsNullOrWhiteSpace(
             student.FullName))
@@ -365,19 +344,45 @@ public class StudentsController : ControllerBase
             student.FullName.Trim();
 
         student.Email =
-            student.Email.Trim()
+            student.Email
+                .Trim()
                 .ToLowerInvariant();
 
-        // Admin-created students are not automatically
-        // linked to an Identity account.
-        student.ApplicationUserId = null;
+        var academicValidation =
+            await ValidateAcademicProfile(
+                new StudentProfileRequest
+                {
+                    TenthPercentage =
+                        student.TenthPercentage,
 
-        var emailExists =
+                    TwelfthPercentage =
+                        student.TwelfthPercentage,
+
+                    CGPA =
+                        student.CGPA,
+
+                    Backlogs =
+                        student.Backlogs,
+
+                    GraduationYear =
+                        student.GraduationYear,
+
+                    DepartmentId =
+                        student.DepartmentId
+                });
+
+        if (academicValidation != null)
+        {
+            return academicValidation;
+        }
+
+        var duplicate =
             await _context.Students
                 .AnyAsync(s =>
-                    s.Email == student.Email);
+                    s.Email ==
+                    student.Email);
 
-        if (emailExists)
+        if (duplicate)
         {
             return BadRequest(new
             {
@@ -386,85 +391,35 @@ public class StudentsController : ControllerBase
             });
         }
 
-        var departmentExists =
-            await _context.Departments
-                .AnyAsync(d =>
-                    d.DepartmentId ==
-                    student.DepartmentId);
-
-        if (!departmentExists)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Invalid DepartmentId. Department does not exist."
-            });
-        }
-
-        if (student.CGPA < 0 ||
-            student.CGPA > 10)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "CGPA must be between 0 and 10."
-            });
-        }
-
-        if (student.Backlogs < 0)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Backlogs cannot be negative."
-            });
-        }
-
-        if (student.GraduationYear <
-                DateTime.UtcNow.Year - 10 ||
-            student.GraduationYear >
-                DateTime.UtcNow.Year + 10)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Invalid graduation year."
-            });
-        }
+        // Admin-created student records do not
+        // automatically own an Identity account.
+        student.ApplicationUserId = null;
 
         _context.Students.Add(student);
 
         await _context.SaveChangesAsync();
 
-        var createdStudent =
-            await _context.Students
-                .Include(s => s.Department)
-                .FirstAsync(s =>
-                    s.StudentId ==
-                    student.StudentId);
-
         return CreatedAtAction(
             nameof(GetStudent),
             new
             {
-                id =
-                    createdStudent.StudentId
+                id = student.StudentId
             },
-            createdStudent);
+            student);
     }
 
-    // --------------------------------------------------
-    // UPDATE STUDENT BY ID
-    // Admin / Placement Officer
-    // Students must use PUT /me
-    // PUT: api/Students/1
-    // --------------------------------------------------
+    // ==================================================
+    // UPDATE STUDENT
+    // ==================================================
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin,PlacementOfficer")]
-    public async Task<IActionResult> UpdateStudent(
-        int id,
-        Student student)
+    [Authorize(
+        Roles =
+            "Admin,PlacementOfficer,Student")]
+    public async Task<IActionResult>
+        UpdateStudent(
+            int id,
+            Student student)
     {
         if (id != student.StudentId)
         {
@@ -475,130 +430,137 @@ public class StudentsController : ControllerBase
             });
         }
 
-        var existingStudent =
+        var existing =
             await _context.Students
-                .FindAsync(id);
+                .FirstOrDefaultAsync(s =>
+                    s.StudentId == id);
 
-        if (existingStudent == null)
+        if (existing == null)
         {
             return NotFound(new
             {
-                message = "Student not found."
-            });
-        }
-
-        if (string.IsNullOrWhiteSpace(
-            student.FullName))
-        {
-            return BadRequest(new
-            {
                 message =
-                    "Student name is required."
+                    "Student not found."
             });
         }
 
-        if (string.IsNullOrWhiteSpace(
-            student.Email))
+        if (User.IsInRole("Student") &&
+            !OwnsStudent(existing))
         {
-            return BadRequest(new
-            {
-                message =
-                    "Student email is required."
-            });
+            return Forbid();
         }
 
-        student.FullName =
-            student.FullName.Trim();
+        var validation =
+            await ValidateAcademicProfile(
+                new StudentProfileRequest
+                {
+                    TenthPercentage =
+                        student.TenthPercentage,
 
-        student.Email =
-            student.Email.Trim()
-                .ToLowerInvariant();
+                    TwelfthPercentage =
+                        student.TwelfthPercentage,
 
-        var duplicateEmail =
-            await _context.Students
-                .AnyAsync(s =>
-                    s.StudentId != id &&
-                    s.Email == student.Email);
+                    CGPA =
+                        student.CGPA,
 
-        if (duplicateEmail)
+                    Backlogs =
+                        student.Backlogs,
+
+                    GraduationYear =
+                        student.GraduationYear,
+
+                    DepartmentId =
+                        student.DepartmentId
+                });
+
+        if (validation != null)
         {
-            return BadRequest(new
-            {
-                message =
-                    "Another student already uses this email."
-            });
+            return validation;
         }
 
-        var departmentExists =
-            await _context.Departments
-                .AnyAsync(d =>
-                    d.DepartmentId ==
-                    student.DepartmentId);
-
-        if (!departmentExists)
+        // A student cannot change identity
+        // name/email through this endpoint.
+        if (!User.IsInRole("Student"))
         {
-            return BadRequest(new
+            if (string.IsNullOrWhiteSpace(
+                student.FullName))
             {
-                message =
-                    "Invalid DepartmentId. Department does not exist."
-            });
+                return BadRequest(new
+                {
+                    message =
+                        "Student name is required."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                student.Email))
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Student email is required."
+                });
+            }
+
+            var normalizedEmail =
+                student.Email
+                    .Trim()
+                    .ToLowerInvariant();
+
+            var duplicate =
+                await _context.Students
+                    .AnyAsync(s =>
+                        s.StudentId != id &&
+                        s.Email ==
+                        normalizedEmail);
+
+            if (duplicate)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Another student already uses this email."
+                });
+            }
+
+            existing.FullName =
+                student.FullName.Trim();
+
+            existing.Email =
+                normalizedEmail;
         }
 
-        if (student.CGPA < 0 ||
-            student.CGPA > 10)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "CGPA must be between 0 and 10."
-            });
-        }
+        existing.TenthPercentage =
+            student.TenthPercentage;
 
-        if (student.Backlogs < 0)
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Backlogs cannot be negative."
-            });
-        }
+        existing.TwelfthPercentage =
+            student.TwelfthPercentage;
 
-        existingStudent.FullName =
-            student.FullName;
-
-        existingStudent.Email =
-            student.Email;
-
-        existingStudent.CGPA =
+        existing.CGPA =
             student.CGPA;
 
-        existingStudent.Backlogs =
+        existing.Backlogs =
             student.Backlogs;
 
-        existingStudent.GraduationYear =
+        existing.GraduationYear =
             student.GraduationYear;
 
-        existingStudent.DepartmentId =
+        existing.DepartmentId =
             student.DepartmentId;
-
-        // Never overwrite ApplicationUserId
-        // through this endpoint.
 
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // DELETE STUDENT
-    // Admin only
-    // DELETE: api/Students/1
-    // --------------------------------------------------
+    // ==================================================
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> DeleteStudent(
-        int id)
+    public async Task<IActionResult>
+        DeleteStudent(int id)
     {
         var student =
             await _context.Students
@@ -608,7 +570,8 @@ public class StudentsController : ControllerBase
         {
             return NotFound(new
             {
-                message = "Student not found."
+                message =
+                    "Student not found."
             });
         }
 
@@ -636,7 +599,7 @@ public class StudentsController : ControllerBase
             return BadRequest(new
             {
                 message =
-                    "Cannot delete student because a placement record is associated with this student."
+                    "Cannot delete student because a placement record exists."
             });
         }
 
@@ -646,4 +609,124 @@ public class StudentsController : ControllerBase
 
         return NoContent();
     }
+
+    // ==================================================
+    // VALIDATION
+    // ==================================================
+
+    private async Task<IActionResult?>
+        ValidateAcademicProfile(
+            StudentProfileRequest request)
+    {
+        if (request.TenthPercentage < 0 ||
+            request.TenthPercentage > 100)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "10th percentage must be between 0 and 100."
+            });
+        }
+
+        if (request.TwelfthPercentage < 0 ||
+            request.TwelfthPercentage > 100)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "12th percentage must be between 0 and 100."
+            });
+        }
+
+        if (request.CGPA < 0 ||
+            request.CGPA > 10)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "CGPA must be between 0 and 10."
+            });
+        }
+
+        if (request.Backlogs < 0)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Backlogs cannot be negative."
+            });
+        }
+
+        var currentYear =
+            DateTime.UtcNow.Year;
+
+        if (request.GraduationYear <
+                currentYear ||
+            request.GraduationYear >
+                currentYear + 10)
+        {
+            return BadRequest(new
+            {
+                message =
+                    $"Graduation year must be between {currentYear} and {currentYear + 10}."
+            });
+        }
+
+        var departmentExists =
+            await _context.Departments
+                .AnyAsync(d =>
+                    d.DepartmentId ==
+                    request.DepartmentId);
+
+        if (!departmentExists)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Invalid DepartmentId. Department does not exist."
+            });
+        }
+
+        return null;
+    }
+
+    private bool OwnsStudent(
+        Student student)
+    {
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        return
+            !string.IsNullOrWhiteSpace(
+                userId)
+            &&
+            student.ApplicationUserId ==
+            userId;
+    }
+}
+
+// ==================================================
+// STUDENT PROFILE REQUEST
+// ==================================================
+
+public class StudentProfileRequest
+{
+    public decimal TenthPercentage
+    { get; set; }
+
+    public decimal TwelfthPercentage
+    { get; set; }
+
+    public decimal CGPA
+    { get; set; }
+
+    public int Backlogs
+    { get; set; }
+
+    public int GraduationYear
+    { get; set; }
+
+    public int DepartmentId
+    { get; set; }
 }

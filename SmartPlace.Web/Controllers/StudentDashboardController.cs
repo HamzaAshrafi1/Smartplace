@@ -5,29 +5,30 @@ namespace SmartPlace.Web.Controllers;
 
 public class StudentDashboardController : Controller
 {
-    private readonly StudentApiService _studentApiService;
+    private readonly StudentApiService
+        _studentApiService;
 
     public StudentDashboardController(
         StudentApiService studentApiService)
     {
-        _studentApiService = studentApiService;
+        _studentApiService =
+            studentApiService;
     }
 
-    // --------------------------------------------------
-    // STUDENT DASHBOARD
-    // --------------------------------------------------
+    // ==================================================
+    // DASHBOARD
+    // ==================================================
 
     public async Task<IActionResult> Index()
     {
         if (!IsStudentLoggedIn())
         {
-            return RedirectToAction(
-                "Login",
-                "Account");
+            return LoginRedirect();
         }
 
         var profile =
-            await _studentApiService.GetMyProfileAsync();
+            await _studentApiService
+                .GetMyProfileAsync();
 
         if (profile == null)
         {
@@ -35,71 +36,128 @@ public class StudentDashboardController : Controller
                 nameof(CompleteProfile));
         }
 
-        ViewBag.UserName =
-            HttpContext.Session.GetString("UserName");
-
-        ViewBag.UserEmail =
-            HttpContext.Session.GetString("UserEmail");
+        ViewBag.AcademicProfileIncomplete =
+            profile.TenthPercentage <= 0
+            ||
+            profile.TwelfthPercentage <= 0;
 
         return View(profile);
     }
 
-    // --------------------------------------------------
-    // COMPLETE PROFILE
-    // GET
-    // --------------------------------------------------
+    // ==================================================
+    // PROFILE GET
+    // ==================================================
 
     [HttpGet]
-    public async Task<IActionResult> CompleteProfile()
+    public async Task<IActionResult>
+        CompleteProfile()
     {
         if (!IsStudentLoggedIn())
         {
-            return RedirectToAction(
-                "Login",
-                "Account");
+            return LoginRedirect();
         }
 
         ViewBag.Departments =
             await _studentApiService
                 .GetDepartmentsAsync();
 
-        var existingProfile =
+        var profile =
             await _studentApiService
                 .GetMyProfileAsync();
 
-        if (existingProfile != null)
+        if (profile == null)
         {
-            var model = new StudentProfileRequest
-            {
-                CGPA = existingProfile.CGPA,
-                Backlogs = existingProfile.Backlogs,
-                GraduationYear =
-                    existingProfile.GraduationYear,
-                DepartmentId =
-                    existingProfile.DepartmentId
-            };
-
-            return View(model);
+            return View(
+                new StudentProfileRequest
+                {
+                    GraduationYear =
+                        DateTime.Now.Year
+                });
         }
 
         return View(
-            new StudentProfileRequest());
+            new StudentProfileRequest
+            {
+                TenthPercentage =
+                    profile.TenthPercentage,
+
+                TwelfthPercentage =
+                    profile.TwelfthPercentage,
+
+                CGPA =
+                    profile.CGPA,
+
+                Backlogs =
+                    profile.Backlogs,
+
+                GraduationYear =
+                    profile.GraduationYear,
+
+                DepartmentId =
+                    profile.DepartmentId
+            });
     }
 
-    // --------------------------------------------------
-    // COMPLETE PROFILE
-    // POST
-    // --------------------------------------------------
+    // ==================================================
+    // PROFILE POST
+    // ==================================================
 
     [HttpPost]
-    public async Task<IActionResult> CompleteProfile(
-        StudentProfileRequest model)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult>
+        CompleteProfile(
+            StudentProfileRequest model)
     {
         if (!IsStudentLoggedIn())
         {
-            return RedirectToAction(
-                "Login",
-                "Account");
+            return LoginRedirect();
+        }
+
+        var currentYear =
+            DateTime.Now.Year;
+
+        if (model.TenthPercentage <= 0 ||
+            model.TenthPercentage > 100)
+        {
+            ModelState.AddModelError(
+                nameof(
+                    model.TenthPercentage),
+                "Enter a valid 10th percentage between 0 and 100.");
+        }
+
+        if (model.TwelfthPercentage <= 0 ||
+            model.TwelfthPercentage > 100)
+        {
+            ModelState.AddModelError(
+                nameof(
+                    model.TwelfthPercentage),
+                "Enter a valid 12th percentage between 0 and 100.");
+        }
+
+        if (model.CGPA < 0 ||
+            model.CGPA > 10)
+        {
+            ModelState.AddModelError(
+                nameof(model.CGPA),
+                "CGPA must be between 0 and 10.");
+        }
+
+        if (model.Backlogs < 0)
+        {
+            ModelState.AddModelError(
+                nameof(model.Backlogs),
+                "Backlogs cannot be negative.");
+        }
+
+        if (model.GraduationYear <
+                currentYear ||
+            model.GraduationYear >
+                currentYear + 10)
+        {
+            ModelState.AddModelError(
+                nameof(
+                    model.GraduationYear),
+                $"Graduation year must be between {currentYear} and {currentYear + 10}.");
         }
 
         if (!ModelState.IsValid)
@@ -111,14 +169,14 @@ public class StudentDashboardController : Controller
             return View(model);
         }
 
-        var success =
+        var result =
             await _studentApiService
                 .SaveMyProfileAsync(model);
 
-        if (!success)
+        if (!result.Success)
         {
             ViewBag.Error =
-                "Unable to save profile. Please check the entered details.";
+                result.Message;
 
             ViewBag.Departments =
                 await _studentApiService
@@ -128,34 +186,90 @@ public class StudentDashboardController : Controller
         }
 
         TempData["Success"] =
-            "Profile saved successfully.";
+            "Academic profile saved successfully.";
 
         return RedirectToAction(
             nameof(Index));
     }
 
-    // --------------------------------------------------
-    // RESUME PAGE
-    // --------------------------------------------------
+    // ==================================================
+    // JOBS
+    // ==================================================
+
+    [HttpGet]
+    public async Task<IActionResult> Jobs()
+    {
+        var profile =
+            await RequireProfileAsync();
+
+        if (profile == null)
+        {
+            return LoginOrProfileRedirect();
+        }
+
+        if (profile.TenthPercentage <= 0 ||
+            profile.TwelfthPercentage <= 0)
+        {
+            TempData["Error"] =
+                "Complete your 10th and 12th academic details before checking job eligibility.";
+
+            return RedirectToAction(
+                nameof(CompleteProfile));
+        }
+
+        var jobs =
+            await _studentApiService
+                .GetStudentJobsAsync(
+                    profile.StudentId);
+
+        if (jobs == null)
+        {
+            jobs =
+                new StudentJobsResponse();
+
+            ViewBag.Error =
+                "Unable to load jobs right now.";
+        }
+
+        JobRecommendationResponse? recommendations =
+            null;
+
+        if (profile.Skills.Count > 0)
+        {
+            recommendations =
+                await _studentApiService
+                    .GetJobRecommendationsAsync(
+                        profile.StudentId);
+        }
+
+        var model =
+            new StudentJobsPageViewModel
+            {
+                Profile = profile,
+
+                Jobs = jobs,
+
+                Recommendations =
+                    recommendations
+                    ?? new JobRecommendationResponse()
+            };
+
+        return View(model);
+    }
+
+    // ==================================================
+    // RESUME
+    // ==================================================
 
     [HttpGet]
     public async Task<IActionResult> Resume()
     {
-        if (!IsStudentLoggedIn())
-        {
-            return RedirectToAction(
-                "Login",
-                "Account");
-        }
-
         var profile =
-            await _studentApiService
-                .GetMyProfileAsync();
+            await RequireProfileAsync();
 
         if (profile == null)
         {
-            return RedirectToAction(
-                nameof(CompleteProfile));
+            return LoginOrProfileRedirect();
         }
 
         var resume =
@@ -163,44 +277,31 @@ public class StudentDashboardController : Controller
                 .GetResumeAsync(
                     profile.StudentId);
 
-        var model = new ResumePageViewModel
-        {
-            StudentId =
-                profile.StudentId,
+        return View(
+            new ResumePageViewModel
+            {
+                StudentId =
+                    profile.StudentId,
 
-            Resume =
-                resume,
+                Resume =
+                    resume,
 
-            Skills =
-                profile.Skills
-        };
-
-        return View(model);
+                Skills =
+                    profile.Skills
+            });
     }
 
-    // --------------------------------------------------
-    // UPLOAD RESUME
-    // --------------------------------------------------
-
     [HttpPost]
-    public async Task<IActionResult> UploadResume(
-        IFormFile file)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult>
+        UploadResume(IFormFile file)
     {
-        if (!IsStudentLoggedIn())
-        {
-            return RedirectToAction(
-                "Login",
-                "Account");
-        }
-
         var profile =
-            await _studentApiService
-                .GetMyProfileAsync();
+            await RequireProfileAsync();
 
         if (profile == null)
         {
-            return RedirectToAction(
-                nameof(CompleteProfile));
+            return LoginOrProfileRedirect();
         }
 
         if (file == null ||
@@ -219,44 +320,29 @@ public class StudentDashboardController : Controller
                     profile.StudentId,
                     file);
 
-        if (!result.Success)
-        {
-            TempData["Error"] =
-                result.Message;
-
-            return RedirectToAction(
-                nameof(Resume));
-        }
-
-        TempData["Success"] =
-            "Resume uploaded and text extracted successfully.";
+        TempData[
+            result.Success
+                ? "Success"
+                : "Error"] =
+            result.Success
+                ? "Resume uploaded and text extracted successfully."
+                : result.Message;
 
         return RedirectToAction(
             nameof(Resume));
     }
 
-    // --------------------------------------------------
-    // EXTRACT SKILLS
-    // --------------------------------------------------
-
     [HttpPost]
-    public async Task<IActionResult> ExtractSkills()
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult>
+        ExtractSkills()
     {
-        if (!IsStudentLoggedIn())
-        {
-            return RedirectToAction(
-                "Login",
-                "Account");
-        }
-
         var profile =
-            await _studentApiService
-                .GetMyProfileAsync();
+            await RequireProfileAsync();
 
         if (profile == null)
         {
-            return RedirectToAction(
-                nameof(CompleteProfile));
+            return LoginOrProfileRedirect();
         }
 
         var result =
@@ -268,95 +354,84 @@ public class StudentDashboardController : Controller
         {
             TempData["Error"] =
                 "Unable to extract skills.";
-
-            return RedirectToAction(
-                nameof(Resume));
         }
-
-        TempData["Success"] =
-            $"Skill extraction completed. " +
-            $"{result.TotalSkillsDetected} skills detected.";
+        else
+        {
+            TempData["Success"] =
+                $"Skill extraction completed. {result.TotalSkillsDetected} skills detected.";
+        }
 
         return RedirectToAction(
             nameof(Resume));
     }
 
-    // --------------------------------------------------
-    // AI JOB RECOMMENDATIONS
-    // --------------------------------------------------
+    // ==================================================
+    // EXISTING RECOMMENDATIONS PAGE
+    // ==================================================
 
     [HttpGet]
-    public async Task<IActionResult> Recommendations()
+    public async Task<IActionResult>
+        Recommendations()
     {
-        if (!IsStudentLoggedIn())
-        {
-            return RedirectToAction(
-                "Login",
-                "Account");
-        }
-
         var profile =
-            await _studentApiService
-                .GetMyProfileAsync();
+            await RequireProfileAsync();
 
         if (profile == null)
         {
+            return LoginOrProfileRedirect();
+        }
+
+        if (profile.TenthPercentage <= 0 ||
+            profile.TwelfthPercentage <= 0)
+        {
+            TempData["Error"] =
+                "Complete your academic profile first.";
+
             return RedirectToAction(
                 nameof(CompleteProfile));
         }
 
-        if (profile.Skills == null ||
-            profile.Skills.Count == 0)
+        if (profile.Skills.Count == 0)
         {
             TempData["Error"] =
-                "Upload your resume and extract skills before viewing job recommendations.";
+                "Upload your resume and extract skills first.";
 
             return RedirectToAction(
                 nameof(Resume));
         }
 
-        var recommendations =
+        var result =
             await _studentApiService
                 .GetJobRecommendationsAsync(
                     profile.StudentId);
 
-        if (recommendations == null)
+        if (result == null)
         {
             ViewBag.Error =
-                "No job recommendations are available right now.";
+                "No AI recommendations are currently available.";
 
             return View(
                 new JobRecommendationResponse());
         }
 
-        return View(recommendations);
+        return View(result);
     }
 
-    // --------------------------------------------------
-    // APPLY FOR JOB
-    // POST: /StudentDashboard/Apply
-    // --------------------------------------------------
+    // ==================================================
+    // APPLY
+    // ==================================================
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Apply(
-        int jobId)
+    public async Task<IActionResult>
+        Apply(int jobId)
     {
-        if (!IsStudentLoggedIn())
-        {
-            return RedirectToAction(
-                "Login",
-                "Account");
-        }
-
         var profile =
-            await _studentApiService
-                .GetMyProfileAsync();
+            await RequireProfileAsync();
 
         if (profile == null)
         {
-            return RedirectToAction(
-                nameof(CompleteProfile));
+            return LoginOrProfileRedirect();
         }
 
         var result =
@@ -365,44 +440,36 @@ public class StudentDashboardController : Controller
                     profile.StudentId,
                     jobId);
 
+        TempData[
+            result.Success
+                ? "Success"
+                : "Error"] =
+            result.Message;
+
         if (result.Success)
         {
-            TempData["Success"] =
-                result.Message;
-
             return RedirectToAction(
                 nameof(MyApplications));
         }
 
-        TempData["Error"] =
-            result.Message;
-
         return RedirectToAction(
-            nameof(Recommendations));
+            nameof(Jobs));
     }
 
-    // --------------------------------------------------
-    // MY APPLICATIONS
-    // --------------------------------------------------
+    // ==================================================
+    // APPLICATIONS
+    // ==================================================
 
     [HttpGet]
-    public async Task<IActionResult> MyApplications()
+    public async Task<IActionResult>
+        MyApplications()
     {
-        if (!IsStudentLoggedIn())
-        {
-            return RedirectToAction(
-                "Login",
-                "Account");
-        }
-
         var profile =
-            await _studentApiService
-                .GetMyProfileAsync();
+            await RequireProfileAsync();
 
         if (profile == null)
         {
-            return RedirectToAction(
-                nameof(CompleteProfile));
+            return LoginOrProfileRedirect();
         }
 
         var applications =
@@ -413,9 +480,57 @@ public class StudentDashboardController : Controller
         return View(applications);
     }
 
-    // --------------------------------------------------
-    // LOGIN CHECK
-    // --------------------------------------------------
+    // ==================================================
+    // INTERVIEWS
+    // ==================================================
+
+    [HttpGet]
+    public async Task<IActionResult>
+        Interviews()
+    {
+        var profile =
+            await RequireProfileAsync();
+
+        if (profile == null)
+        {
+            return LoginOrProfileRedirect();
+        }
+
+        var interviews =
+            await _studentApiService
+                .GetMyInterviewsAsync(
+                    profile.StudentId);
+
+        return View(interviews);
+    }
+
+    // ==================================================
+    // PLACEMENT
+    // ==================================================
+
+    [HttpGet]
+    public async Task<IActionResult>
+        Placement()
+    {
+        var profile =
+            await RequireProfileAsync();
+
+        if (profile == null)
+        {
+            return LoginOrProfileRedirect();
+        }
+
+        var placement =
+            await _studentApiService
+                .GetMyPlacementAsync(
+                    profile.StudentId);
+
+        return View(placement);
+    }
+
+    // ==================================================
+    // HELPERS
+    // ==================================================
 
     private bool IsStudentLoggedIn()
     {
@@ -435,11 +550,42 @@ public class StudentDashboardController : Controller
                 "Student",
                 StringComparison.OrdinalIgnoreCase);
     }
+
+    private async Task<StudentProfile?>
+        RequireProfileAsync()
+    {
+        if (!IsStudentLoggedIn())
+        {
+            return null;
+        }
+
+        return await _studentApiService
+            .GetMyProfileAsync();
+    }
+
+    private IActionResult LoginRedirect()
+    {
+        return RedirectToAction(
+            "Login",
+            "Account");
+    }
+
+    private IActionResult
+        LoginOrProfileRedirect()
+    {
+        if (!IsStudentLoggedIn())
+        {
+            return LoginRedirect();
+        }
+
+        return RedirectToAction(
+            nameof(CompleteProfile));
+    }
 }
 
 
 // ==================================================
-// PAGE VIEW MODEL
+// VIEW MODELS
 // ==================================================
 
 public class ResumePageViewModel
@@ -448,6 +594,18 @@ public class ResumePageViewModel
 
     public ResumeInfo? Resume { get; set; }
 
-    public List<string> Skills { get; set; } =
-        new();
+    public List<string> Skills
+    { get; set; } = new();
+}
+
+public class StudentJobsPageViewModel
+{
+    public StudentProfile Profile
+    { get; set; } = new();
+
+    public StudentJobsResponse Jobs
+    { get; set; } = new();
+
+    public JobRecommendationResponse Recommendations
+    { get; set; } = new();
 }

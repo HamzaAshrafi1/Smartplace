@@ -1,0 +1,805 @@
+﻿@model SmartPlace.Web.Controllers.PlacementDashboardViewModel
+
+@{
+    ViewData["Title"] =
+        "Placement Officer Dashboard";
+
+    var pendingCompanies =
+        Model.Companies
+            .Where(c =>
+                c.ApprovalStatus == "Pending")
+            .ToList();
+
+    var pendingJobs =
+        Model.Jobs
+            .Where(j =>
+                j.Status == "Pending")
+            .ToList();
+}
+
+<div class="container py-4">
+
+    <div class="mb-4">
+
+        <h2 class="fw-bold mb-1">
+            Placement Officer Dashboard
+        </h2>
+
+        <p class="text-muted mb-0">
+            Manage approvals, placement eligibility,
+            selected students and final placements.
+        </p>
+
+    </div>
+
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+
+    <!-- ==================================================
+         SUMMARY
+    =================================================== -->
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Students
+                    </small>
+
+                    <div class="fs-2 fw-bold">
+                        @Model.Students.Count
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Pending Companies
+                    </small>
+
+                    <div class="fs-2 fw-bold text-warning">
+                        @pendingCompanies.Count
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Pending Jobs
+                    </small>
+
+                    <div class="fs-2 fw-bold text-warning">
+                        @pendingJobs.Count
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Placements
+                    </small>
+
+                    <div class="fs-2 fw-bold text-success">
+                        @Model.Placements.Count
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         COMPANY APPROVALS
+    =================================================== -->
+
+    <div class="card border-0 shadow-sm mb-4">
+
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+
+                <h4 class="fw-bold mb-0">
+                    Company Approvals
+                </h4>
+
+                <span class="badge bg-warning text-dark">
+                    @pendingCompanies.Count Pending
+                </span>
+
+            </div>
+
+
+            @if (Model.Companies.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    No companies registered.
+                </p>
+            }
+            else
+            {
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Industry</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Approval</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @foreach (var company
+                                      in Model.Companies)
+                            {
+                                <tr>
+
+                                    <td class="fw-semibold">
+                                        @company.Name
+                                    </td>
+
+                                    <td>
+                                        @company.Industry
+                                    </td>
+
+                                    <td>
+                                        @company.Location
+                                    </td>
+
+                                    <td>
+
+                                        @if (company.ApprovalStatus == "Approved")
+                                        {
+                                            <span class="badge bg-success">
+                                                Approved
+                                            </span>
+                                        }
+                                        else if (company.ApprovalStatus == "Rejected")
+                                        {
+                                            <span class="badge bg-danger">
+                                                Rejected
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                Pending
+                                            </span>
+                                        }
+
+                                    </td>
+
+                                    <td>
+
+                                        <form asp-action="CompanyApproval"
+                                              method="post"
+                                              class="d-flex gap-2">
+
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@company.CompanyId" />
+
+                                            <button name="status"
+                                                    value="Approved"
+                                                    class="btn btn-sm btn-success">
+                                                Approve
+                                            </button>
+
+                                            <button name="status"
+                                                    value="Rejected"
+                                                    class="btn btn-sm btn-outline-danger">
+                                                Reject
+                                            </button>
+
+                                        </form>
+
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         JOB APPROVAL
+    =================================================== -->
+
+    <div class="card border-0 shadow-sm mb-4">
+
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+
+                <h4 class="fw-bold mb-0">
+                    Job Publishing
+                </h4>
+
+                <span class="badge bg-warning text-dark">
+                    @pendingJobs.Count Pending
+                </span>
+
+            </div>
+
+
+            @if (Model.Jobs.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    No jobs submitted.
+                </p>
+            }
+            else
+            {
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+
+                            <tr>
+                                <th>Job</th>
+                                <th>Company</th>
+                                <th>Requirements</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            @foreach (var job
+                                      in Model.Jobs)
+                            {
+                                <tr>
+
+                                    <td>
+
+                                        <div class="fw-semibold">
+                                            @job.Title
+                                        </div>
+
+                                        <small class="text-muted">
+                                            @job.Location
+                                        </small>
+
+                                    </td>
+
+
+                                    <td>
+                                        @job.Company?.Name
+                                    </td>
+
+
+                                    <td class="small">
+
+                                        <div>
+                                            Branch:
+                                            <strong>
+                                                @(job.RequiredDepartment?.Name
+                                                    ?? "Not configured")
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            10th:
+                                            <strong>
+                                                @job.MinimumTenthPercentage%
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            12th:
+                                            <strong>
+                                                @job.MinimumTwelfthPercentage%
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            CGPA:
+                                            <strong>
+                                                @job.MinimumCGPA
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            Backlogs:
+                                            max
+                                            <strong>
+                                                @job.MaximumBacklogs
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            Graduation:
+                                            <strong>
+                                                @job.GraduationYear
+                                            </strong>
+                                        </div>
+
+                                    </td>
+
+
+                                    <td>
+                                        @job.Status
+                                    </td>
+
+
+                                    <td>
+
+                                        <form asp-action="JobStatus"
+                                              method="post"
+                                              class="d-flex flex-wrap gap-2">
+
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@job.JobId" />
+
+                                            <button name="status"
+                                                    value="Published"
+                                                    class="btn btn-sm btn-success">
+                                                Publish
+                                            </button>
+
+                                            <button name="status"
+                                                    value="Rejected"
+                                                    class="btn btn-sm btn-outline-danger">
+                                                Reject
+                                            </button>
+
+                                            <button name="status"
+                                                    value="Closed"
+                                                    class="btn btn-sm btn-secondary">
+                                                Close
+                                            </button>
+
+                                        </form>
+
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         SELECTED STUDENTS AWAITING PLACEMENT
+    =================================================== -->
+
+    <div class="card border-0 shadow-sm mb-4">
+
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+
+                <div>
+
+                    <h4 class="fw-bold mb-1">
+                        Selected Students
+                    </h4>
+
+                    <p class="text-muted mb-0">
+                        Recruitment selections awaiting final
+                        placement recording.
+                    </p>
+
+                </div>
+
+                <span class="badge bg-success fs-6">
+                    @Model.PendingPlacements.Count Pending
+                </span>
+
+            </div>
+
+
+            @if (Model.PendingPlacements.Count == 0)
+            {
+                <div class="text-center py-4">
+
+                    <h6 class="fw-bold">
+                        No pending placements
+                    </h6>
+
+                    <p class="text-muted mb-0">
+                        Selected students who do not yet have
+                        a placement record will appear here.
+                    </p>
+
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+
+                            <tr>
+                                <th>Student</th>
+                                <th>Job</th>
+                                <th>Company</th>
+                                <th>Academics</th>
+                                <th>Record Placement</th>
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            @foreach (var application
+                                      in Model.PendingPlacements)
+                            {
+                                <tr>
+
+                                    <td>
+
+                                        <div class="fw-semibold">
+                                            @application.Student?.FullName
+                                        </div>
+
+                                        <small class="text-muted">
+                                            @application.Student?.Email
+                                        </small>
+
+                                    </td>
+
+
+                                    <td>
+                                        @application.Job?.Title
+                                    </td>
+
+
+                                    <td>
+                                        @application.Job?.Company?.Name
+                                    </td>
+
+
+                                    <td class="small">
+
+                                        <div>
+                                            10th:
+                                            @application.Student?.TenthPercentage%
+                                        </div>
+
+                                        <div>
+                                            12th:
+                                            @application.Student?.TwelfthPercentage%
+                                        </div>
+
+                                        <div>
+                                            CGPA:
+                                            @application.Student?.CGPA
+                                        </div>
+
+                                        <div>
+                                            Backlogs:
+                                            @application.Student?.Backlogs
+                                        </div>
+
+                                        <div>
+                                            Branch:
+                                            @application.Student?
+                                            .Department?.Name
+                                        </div>
+
+                                    </td>
+
+
+                                    <td style="min-width: 270px;">
+
+                                        <form asp-action="CreatePlacement"
+                                              method="post">
+
+                                            <input type="hidden"
+                                                   name="StudentId"
+                                                   value="@application.StudentId" />
+
+                                            <input type="hidden"
+                                                   name="CompanyId"
+                                                   value="@application.Job?.CompanyId" />
+
+                                            <input name="OfferedPackage"
+                                                   type="number"
+                                                   min="0"
+                                                   step="0.01"
+                                                   class="form-control form-control-sm mb-2"
+                                                   placeholder="Final package"
+                                                   required />
+
+                                            <input name="JoiningDate"
+                                                   type="date"
+                                                   class="form-control form-control-sm mb-2" />
+
+                                            <input name="OfferLetterUrl"
+                                                   class="form-control form-control-sm mb-2"
+                                                   placeholder="Offer letter URL" />
+
+                                            <button class="btn btn-sm btn-primary w-100">
+                                                Record Placement
+                                            </button>
+
+                                        </form>
+
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         PLACEMENT RECORDS
+    =================================================== -->
+
+    <div class="card border-0 shadow-sm mb-4">
+
+        <div class="card-body p-4">
+
+            <h4 class="fw-bold mb-3">
+                Placement Records
+            </h4>
+
+
+            @if (Model.Placements.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    No placements recorded yet.
+                </p>
+            }
+            else
+            {
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+
+                            <tr>
+                                <th>Student</th>
+                                <th>Company</th>
+                                <th>Package</th>
+                                <th>Joining Date</th>
+                                <th>Status</th>
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            @foreach (var placement
+                                      in Model.Placements)
+                            {
+                                var joiningDateText =
+                                    placement.JoiningDate.HasValue
+                                        ? placement.JoiningDate.Value
+                                            .ToString("dd MMM yyyy")
+                                        : "Not announced";
+
+                                <tr>
+
+                                    <td>
+                                        @placement.Student?.FullName
+                                    </td>
+
+                                    <td>
+                                        @placement.Company?.Name
+                                    </td>
+
+                                    <td>
+                                        @placement.OfferedPackage
+                                    </td>
+
+                                    <td>
+                                        @joiningDateText
+                                    </td>
+
+                                    <td>
+                                        <span class="badge bg-success">
+                                            @placement.Status
+                                        </span>
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         MASTER DATA
+    =================================================== -->
+
+    <div class="row g-4">
+
+
+        <div class="col-lg-6">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body p-4">
+
+                    <h4 class="fw-bold">
+                        Departments
+                    </h4>
+
+                    <form asp-action="CreateDepartment"
+                          method="post"
+                          class="d-flex gap-2 mt-3 mb-4">
+
+                        <input name="name"
+                               class="form-control"
+                               placeholder="Department name"
+                               required />
+
+                        <button class="btn btn-primary">
+                            Add
+                        </button>
+
+                    </form>
+
+
+                    <div class="d-flex flex-wrap gap-2">
+
+                        @foreach (var department
+                                  in Model.Departments)
+                        {
+                            <span class="badge bg-secondary p-2">
+                                @department.Name
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-lg-6">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body p-4">
+
+                    <h4 class="fw-bold">
+                        Skills
+                    </h4>
+
+                    <form asp-action="CreateSkill"
+                          method="post"
+                          class="d-flex gap-2 mt-3 mb-4">
+
+                        <input name="name"
+                               class="form-control"
+                               placeholder="Skill name"
+                               required />
+
+                        <button class="btn btn-primary">
+                            Add
+                        </button>
+
+                    </form>
+
+
+                    <div class="d-flex flex-wrap gap-2">
+
+                        @foreach (var skill
+                                  in Model.Skills)
+                        {
+                            <span class="badge bg-secondary p-2">
+                                @skill.Name
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+</div>

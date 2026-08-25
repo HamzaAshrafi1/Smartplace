@@ -68,36 +68,63 @@ builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(
         options =>
         {
+            // Password policy
             options.Password.RequireDigit = true;
             options.Password.RequireLowercase = true;
             options.Password.RequireUppercase = true;
-            options.Password.RequireNonAlphanumeric = false;
-            options.Password.RequiredLength = 6;
 
+            // NEW:
+            // Password must contain at least one
+            // non-alphanumeric / special character.
+            options.Password.RequireNonAlphanumeric = true;
+
+            options.Password.RequiredLength = 6;
+            options.Password.RequiredUniqueChars = 1;
+
+            // User rules
             options.User.RequireUniqueEmail = true;
+
+            // Lockout protection
+            options.Lockout.AllowedForNewUsers = true;
+
+            options.Lockout.MaxFailedAccessAttempts = 5;
+
+            options.Lockout.DefaultLockoutTimeSpan =
+                TimeSpan.FromMinutes(10);
         })
     .AddEntityFrameworkStores<SmartPlaceDbContext>()
     .AddDefaultTokenProviders();
 
 // --------------------------------------------------
-// HYBRID AI SERVICES
+// HYBRID AI + ELIGIBILITY SERVICES
 // --------------------------------------------------
 
 builder.Services.AddScoped<SkillExtractionService>();
+
 builder.Services.AddScoped<JobMatchingService>();
+
 builder.Services.AddScoped<OpenAIAnalysisService>();
+
+builder.Services.AddScoped<JobEligibilityService>();
 
 // --------------------------------------------------
 // JWT AUTHENTICATION
 // --------------------------------------------------
 
-var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtKey =
+    builder.Configuration["Jwt:Key"];
 
 if (string.IsNullOrWhiteSpace(jwtKey))
 {
     throw new InvalidOperationException(
         "JWT key is missing from configuration.");
 }
+
+var jwtIssuer =
+    builder.Configuration["Jwt:Issuer"];
+
+var jwtAudience =
+    builder.Configuration["Jwt:Audience"];
 
 builder.Services
     .AddAuthentication(options =>
@@ -118,15 +145,14 @@ builder.Services
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
 
-                ValidIssuer =
-                    builder.Configuration["Jwt:Issuer"],
+                ValidIssuer = jwtIssuer,
 
-                ValidAudience =
-                    builder.Configuration["Jwt:Audience"],
+                ValidAudience = jwtAudience,
 
                 IssuerSigningKey =
                     new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(jwtKey)),
+                        Encoding.UTF8.GetBytes(
+                            jwtKey)),
 
                 ClockSkew = TimeSpan.Zero
             };
@@ -141,14 +167,20 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 
 // --------------------------------------------------
-// CREATE DEFAULT ROLES
+// CREATE DEFAULT ROLES + SYSTEM USERS
 // --------------------------------------------------
 
 using (var scope = app.Services.CreateScope())
 {
     var roleManager =
         scope.ServiceProvider
-            .GetRequiredService<RoleManager<IdentityRole>>();
+            .GetRequiredService<
+                RoleManager<IdentityRole>>();
+
+    var userManager =
+        scope.ServiceProvider
+            .GetRequiredService<
+                UserManager<ApplicationUser>>();
 
     string[] roles =
     {
@@ -158,12 +190,179 @@ using (var scope = app.Services.CreateScope())
         "PlacementOfficer"
     };
 
+    // --------------------------------------------------
+    // CREATE ROLES
+    // --------------------------------------------------
+
     foreach (var role in roles)
     {
-        if (!await roleManager.RoleExistsAsync(role))
+        if (!await roleManager
+                .RoleExistsAsync(role))
         {
-            await roleManager.CreateAsync(
-                new IdentityRole(role));
+            var createRoleResult =
+                await roleManager.CreateAsync(
+                    new IdentityRole(role));
+
+            if (!createRoleResult.Succeeded)
+            {
+                var errors =
+                    string.Join(
+                        ", ",
+                        createRoleResult.Errors
+                            .Select(e =>
+                                e.Description));
+
+                throw new InvalidOperationException(
+                    $"Unable to create role '{role}': {errors}");
+            }
+        }
+    }
+
+    // --------------------------------------------------
+    // DEFAULT ADMIN ACCOUNT
+    // --------------------------------------------------
+
+    const string adminEmail =
+        "admin@smartplace.com";
+
+    const string adminPassword =
+        "Admin@123";
+
+    var adminUser =
+        await userManager.FindByEmailAsync(
+            adminEmail);
+
+    if (adminUser == null)
+    {
+        adminUser =
+            new ApplicationUser
+            {
+                FullName =
+                    "SmartPlace Administrator",
+
+                UserName =
+                    adminEmail,
+
+                Email =
+                    adminEmail,
+
+                EmailConfirmed =
+                    true
+            };
+
+        var createAdminResult =
+            await userManager.CreateAsync(
+                adminUser,
+                adminPassword);
+
+        if (!createAdminResult.Succeeded)
+        {
+            var errors =
+                string.Join(
+                    ", ",
+                    createAdminResult.Errors
+                        .Select(e =>
+                            e.Description));
+
+            throw new InvalidOperationException(
+                $"Unable to create default Admin account: {errors}");
+        }
+    }
+
+    if (!await userManager.IsInRoleAsync(
+            adminUser,
+            "Admin"))
+    {
+        var addAdminRoleResult =
+            await userManager.AddToRoleAsync(
+                adminUser,
+                "Admin");
+
+        if (!addAdminRoleResult.Succeeded)
+        {
+            var errors =
+                string.Join(
+                    ", ",
+                    addAdminRoleResult.Errors
+                        .Select(e =>
+                            e.Description));
+
+            throw new InvalidOperationException(
+                $"Unable to assign Admin role: {errors}");
+        }
+    }
+
+    // --------------------------------------------------
+    // DEFAULT PLACEMENT OFFICER ACCOUNT
+    // --------------------------------------------------
+
+    const string placementEmail =
+        "placement@smartplace.com";
+
+    const string placementPassword =
+        "Placement@123";
+
+    var placementUser =
+        await userManager.FindByEmailAsync(
+            placementEmail);
+
+    if (placementUser == null)
+    {
+        placementUser =
+            new ApplicationUser
+            {
+                FullName =
+                    "Placement Officer",
+
+                UserName =
+                    placementEmail,
+
+                Email =
+                    placementEmail,
+
+                EmailConfirmed =
+                    true
+            };
+
+        var createPlacementResult =
+            await userManager.CreateAsync(
+                placementUser,
+                placementPassword);
+
+        if (!createPlacementResult.Succeeded)
+        {
+            var errors =
+                string.Join(
+                    ", ",
+                    createPlacementResult.Errors
+                        .Select(e =>
+                            e.Description));
+
+            throw new InvalidOperationException(
+                $"Unable to create default Placement Officer account: {errors}");
+        }
+    }
+
+    if (!await userManager.IsInRoleAsync(
+            placementUser,
+            "PlacementOfficer"))
+    {
+        var addPlacementRoleResult =
+            await userManager.AddToRoleAsync(
+                placementUser,
+                "PlacementOfficer");
+
+        if (!addPlacementRoleResult.Succeeded)
+        {
+            var errors =
+                string.Join(
+                    ", ",
+                    addPlacementRoleResult.Errors
+                        .Select(e =>
+                            e.Description));
+
+            throw new InvalidOperationException(
+                $"Unable to assign PlacementOfficer role: {errors}");
         }
     }
 }
@@ -181,6 +380,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.MapControllers();

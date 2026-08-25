@@ -1,0 +1,366 @@
+﻿@model List<SmartPlace.Web.Services.AdminUserItem>
+
+@{
+    ViewData["Title"] =
+        "User Management";
+
+    var students =
+        Model.Count(u =>
+            u.Role == "Student");
+
+    var recruiters =
+        Model.Count(u =>
+            u.Role == "Recruiter");
+
+    var systemUsers =
+        Model.Count(u =>
+            u.Role == "Admin"
+            ||
+            u.Role == "PlacementOfficer");
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between
+        align-items-center mb-4">
+
+        <div>
+
+            <h2 class="fw-bold mb-1">
+                User Management
+            </h2>
+
+            <p class="text-muted mb-0">
+                Manage registered Student and Recruiter
+                accounts safely.
+            </p>
+
+        </div>
+
+        <a asp-controller="AdminDashboard"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            Back to Dashboard
+        </a>
+
+    </div>
+
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Total Accounts
+                    </small>
+
+                    <div class="fs-2 fw-bold">
+                        @Model.Count
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Students
+                    </small>
+
+                    <div class="fs-2 fw-bold">
+                        @students
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Recruiters
+                    </small>
+
+                    <div class="fs-2 fw-bold">
+                        @recruiters
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+                        Protected System Accounts
+                    </small>
+
+                    <div class="fs-2 fw-bold">
+                        @systemUsers
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="alert alert-info">
+
+        <strong>
+            Safe deletion rules
+        </strong>
+
+        <div class="small mt-1">
+            Students with application or placement history
+            cannot be deleted. Recruiters whose companies
+            contain jobs or placement history cannot be deleted.
+        </div>
+
+    </div>
+
+
+    <div class="card border-0 shadow-sm">
+
+        <div class="card-body p-4">
+
+            @if (Model.Count == 0)
+            {
+                <div class="text-center py-5">
+
+                    <h5 class="fw-bold">
+                        No registered users found
+                    </h5>
+
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Associated Record</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            @foreach (var user in Model)
+                            {
+                                <tr>
+
+                                    <td>
+
+                                        <div class="fw-semibold">
+                                            @user.FullName
+                                        </div>
+
+                                        <small class="text-muted">
+                                            @user.Email
+                                        </small>
+
+                                    </td>
+
+
+                                    <td>
+
+                                        @if (user.Role == "Admin")
+                                        {
+                                            <span class="badge bg-danger">
+                                                Admin
+                                            </span>
+                                        }
+                                        else if (user.Role == "PlacementOfficer")
+                                        {
+                                            <span class="badge bg-primary">
+                                                Placement Officer
+                                            </span>
+                                        }
+                                        else if (user.Role == "Recruiter")
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                Recruiter
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">
+                                                Student
+                                            </span>
+                                        }
+
+                                    </td>
+
+
+                                    <td>
+
+                                        @if (user.Role == "Student")
+                                        {
+                                            @if (user.StudentId.HasValue)
+                                            {
+                                                <span>
+                                                    Student #@user.StudentId
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">
+                                                    Profile not completed
+                                                </span>
+                                            }
+                                        }
+                                        else if (user.Role == "Recruiter")
+                                        {
+                                            @if (user.CompanyId.HasValue)
+                                            {
+                                                <div class="fw-semibold">
+                                                    @user.CompanyName
+                                                </div>
+
+                                                <small class="text-muted">
+                                                    @user.CompanyApprovalStatus
+                                                </small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">
+                                                    No company registered
+                                                </span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">
+                                                System account
+                                            </span>
+                                        }
+
+                                    </td>
+
+
+                                    <td>
+
+                                        @if (user.CanDelete)
+                                        {
+                                            <span class="badge bg-success">
+                                                Can Delete
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">
+                                                Protected
+                                            </span>
+
+                                            @if (!string.IsNullOrWhiteSpace(
+                                                user.DeleteBlockedReason))
+                                            {
+                                                <div class="small text-muted mt-1">
+                                                    @user.DeleteBlockedReason
+                                                </div>
+                                            }
+                                        }
+
+                                    </td>
+
+
+                                    <td>
+
+                                        @if (user.CanDelete)
+                                        {
+                                            <form asp-controller="AdminDashboard"
+                                                  asp-action="DeleteUser"
+                                                  method="post"
+                                                  onsubmit="return confirm('Permanently delete this registered account? This action cannot be undone.');">
+
+                                                <input type="hidden"
+                                                       name="userId"
+                                                       value="@user.UserId" />
+
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-danger">
+                                                    Delete Account
+                                                </button>
+
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-sm btn-secondary"
+                                                    disabled>
+                                                Delete Unavailable
+                                            </button>
+                                        }
+
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+</div>
