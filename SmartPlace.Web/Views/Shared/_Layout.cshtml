@@ -1,4 +1,99 @@
-﻿<!DOCTYPE html>
+﻿@{
+    var token =
+        Context.Session.GetString("JWToken");
+
+    var role =
+        Context.Session.GetString("UserRole");
+
+    var name =
+        Context.Session.GetString("UserName");
+
+    var isLoggedIn =
+        !string.IsNullOrWhiteSpace(token);
+
+    string dashboardController =
+        role switch
+        {
+            "Student" =>
+                "StudentDashboard",
+
+            "Recruiter" =>
+                "RecruiterDashboard",
+
+            "PlacementOfficer" =>
+                "PlacementDashboard",
+
+            "Admin" =>
+                "AdminDashboard",
+
+            _ =>
+                "Home"
+        };
+
+    var currentController =
+        ViewContext.RouteData.Values["controller"]
+            ?.ToString();
+
+    var currentAction =
+        ViewContext.RouteData.Values["action"]
+            ?.ToString();
+
+    string IsActive(
+        string controller,
+        string action = "")
+    {
+        var controllerMatches =
+            string.Equals(
+                currentController,
+                controller,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!controllerMatches)
+        {
+            return "";
+        }
+
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return "active";
+        }
+
+        return string.Equals(
+            currentAction,
+            action,
+            StringComparison.OrdinalIgnoreCase)
+                ? "active"
+                : "";
+    }
+
+    string GetInitials()
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "SP";
+        }
+
+        var parts =
+            name.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(0, 1)
+                .ToUpperInvariant();
+        }
+
+        return (
+            parts[0][0].ToString() +
+            parts[^1][0].ToString())
+            .ToUpperInvariant();
+    }
+}
+
+<!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -27,223 +122,861 @@
 
 <body>
 
-    @{
-        var token =
-            Context.Session.GetString("JWToken");
 
-        var role =
-            Context.Session.GetString("UserRole");
+    @if (isLoggedIn)
+    {
+        <div class="smartplace-app">
 
-        var name =
-            Context.Session.GetString("UserName");
+            <!-- ==================================================
+             SIDEBAR
+        =================================================== -->
 
-        string dashboardController =
-            role switch
-            {
-                "Student" =>
-                    "StudentDashboard",
+            <aside id="smartplaceSidebar"
+                   class="smartplace-sidebar">
 
-                "Recruiter" =>
-                    "RecruiterDashboard",
+                <!-- BRAND -->
 
-                "PlacementOfficer" =>
-                    "PlacementDashboard",
+                <div class="sidebar-brand">
 
-                "Admin" =>
-                    "AdminDashboard",
+                    <a asp-controller="@dashboardController"
+                       asp-action="Index"
+                       class="text-decoration-none">
 
-                _ =>
-                    "Home"
-            };
-    }
+                        <div class="d-flex
+                            align-items-center
+                            gap-3">
+
+                            <div style="
+                                width: 42px;
+                                height: 42px;
+                                border-radius: 12px;
+                                background:
+                                linear-gradient(
+                                135deg,
+                                #2563eb,
+                                #7c3aed
+                                );
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: white;
+                                font-weight: 800;
+                                font-size: 1.05rem;
+                                ">
+                                SP
+                            </div>
+
+                            <div>
+
+                                <div class="sidebar-brand-title">
+                                    SmartPlace
+                                </div>
+
+                                <div class="sidebar-brand-subtitle">
+                                    AI Placement Platform
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                </div>
 
 
-    <header>
+                <!-- NAVIGATION -->
 
-        <nav class="navbar navbar-expand-lg
-            navbar-light bg-white
-            border-bottom shadow-sm">
+                <div class="sidebar-nav">
 
-            <div class="container">
-
-                <a class="navbar-brand fw-bold"
-                   asp-controller="@dashboardController"
-                   asp-action="Index">
-                    SmartPlace
-                </a>
+                    <div class="sidebar-section-title">
+                        Main
+                    </div>
 
 
-                <button class="navbar-toggler"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#mainNav">
+                    <!-- DASHBOARD -->
 
-                    <span class="navbar-toggler-icon">
-                    </span>
+                    <a asp-controller="@dashboardController"
+                       asp-action="Index"
+                       class="sidebar-link
+                        @IsActive(
+                           dashboardController,
+                           "Index")">
 
-                </button>
+                        <span class="sidebar-link-icon">
+                            ◫
+                        </span>
+
+                        <span>
+                            Dashboard
+                        </span>
+
+                    </a>
 
 
-                <div id="mainNav"
-                     class="collapse navbar-collapse">
-
-
-                    @if (!string.IsNullOrWhiteSpace(token))
+                    <!-- ==================================================
+                     STUDENT NAVIGATION
+                =================================================== -->
+                    @if (role == "Student")
                     {
-                        <ul class="navbar-nav me-auto">
-
-                            <li class="nav-item">
-
-                                <a class="nav-link"
-                                   asp-controller="@dashboardController"
-                                   asp-action="Index">
-                                    Dashboard
-                                </a>
-
-                            </li>
+                        <div class="sidebar-section-title">
+                            Placement
+                        </div>
 
 
-                            @if (role == "Student")
-                            {
-                                <li class="nav-item">
+                        <a asp-controller="StudentDashboard"
+                           asp-action="Jobs"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "Jobs")">
 
-                                    <a class="nav-link"
-                                       asp-controller="StudentDashboard"
-                                       asp-action="Jobs">
-                                        Jobs
-                                    </a>
+                            <span class="sidebar-link-icon">
+                                ◈
+                            </span>
 
-                                </li>
+                            <span>
+                                Browse Jobs
+                            </span>
 
-                                <li class="nav-item">
-
-                                    <a class="nav-link"
-                                       asp-controller="StudentDashboard"
-                                       asp-action="MyApplications">
-                                        Applications
-                                    </a>
-
-                                </li>
-
-                                <li class="nav-item">
-
-                                    <a class="nav-link"
-                                       asp-controller="StudentDashboard"
-                                       asp-action="Interviews">
-                                        Interviews
-                                    </a>
-
-                                </li>
-
-                                <li class="nav-item">
-
-                                    <a class="nav-link"
-                                       asp-controller="StudentDashboard"
-                                       asp-action="Placement">
-                                        Placement
-                                    </a>
-
-                                </li>
-                            }
+                        </a>
 
 
-                            @if (role == "Admin")
-                            {
-                                <li class="nav-item">
+                        <a asp-controller="StudentDashboard"
+                           asp-action="Recommendations"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "Recommendations")">
 
-                                    <a class="nav-link"
-                                       asp-controller="AdminDashboard"
-                                       asp-action="Users">
-                                        User Management
-                                    </a>
+                            <span class="sidebar-link-icon">
+                                ✦
+                            </span>
 
-                                </li>
-                            }
+                            <span>
+                                AI Recommendations
+                            </span>
 
-                        </ul>
+                        </a>
 
 
-                        <ul class="navbar-nav ms-auto">
+                        <a asp-controller="StudentDashboard"
+                           asp-action="MyApplications"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "MyApplications")">
 
-                            <li class="nav-item
-                                d-flex align-items-center me-3">
+                            <span class="sidebar-link-icon">
+                                ▣
+                            </span>
 
-                                <span class="text-muted">
+                            <span>
+                                My Applications
+                            </span>
 
-                                    @name
-                                    ·
-                                    @role
+                        </a>
 
-                                </span>
 
-                            </li>
+                        <a asp-controller="StudentDashboard"
+                           asp-action="Interviews"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "Interviews")">
 
-                            <li class="nav-item">
+                            <span class="sidebar-link-icon">
+                                ◷
+                            </span>
 
-                                <a class="nav-link text-danger"
-                                   asp-controller="Account"
-                                   asp-action="Logout">
-                                    Logout
-                                </a>
+                            <span>
+                                Interviews
+                            </span>
 
-                            </li>
+                        </a>
 
-                        </ul>
+
+                        <a asp-controller="StudentDashboard"
+                           asp-action="Placement"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "Placement")">
+
+                            <span class="sidebar-link-icon">
+                                ★
+                            </span>
+
+                            <span>
+                                Placement
+                            </span>
+
+                        </a>
+
+
+                        <div class="sidebar-section-title">
+                            Profile
+                        </div>
+
+
+                        <a asp-controller="StudentDashboard"
+                           asp-action="Profile"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "Profile")">
+
+                            <span class="sidebar-link-icon">
+                                ◎
+                            </span>
+
+                            <span>
+                                Academic Profile
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="StudentDashboard"
+                           asp-action="Resume"
+                           class="sidebar-link
+                            @IsActive(
+                               "StudentDashboard",
+                               "Resume")">
+
+                            <span class="sidebar-link-icon">
+                                ▤
+                            </span>
+
+                            <span>
+                                Resume & Skills
+                            </span>
+
+                        </a>
                     }
-                    else
+
+
+                    <!-- ==================================================
+                     RECRUITER NAVIGATION
+                =================================================== -->
+                    @if (role == "Recruiter")
                     {
-                        <ul class="navbar-nav ms-auto">
+                        <div class="sidebar-section-title">
+                            Recruitment
+                        </div>
+
+                        <a asp-controller="RecruiterDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ◈
+                            </span>
+
+                            <span>
+                                Jobs & Company
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="RecruiterDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ▣
+                            </span>
+
+                            <span>
+                                Applications
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="RecruiterDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ◷
+                            </span>
+
+                            <span>
+                                Interviews
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="RecruiterDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ★
+                            </span>
+
+                            <span>
+                                Selected Students
+                            </span>
+
+                        </a>
+                    }
+
+
+                    <!-- ==================================================
+                     PLACEMENT OFFICER NAVIGATION
+                =================================================== -->
+                    @if (role == "PlacementOfficer")
+                    {
+                        <div class="sidebar-section-title">
+                            Management
+                        </div>
+
+                        <a asp-controller="PlacementDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ◉
+                            </span>
+
+                            <span>
+                                Company Approvals
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="PlacementDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ◈
+                            </span>
+
+                            <span>
+                                Jobs
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="PlacementDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ◎
+                            </span>
+
+                            <span>
+                                Students
+                            </span>
+
+                        </a>
+
+
+                        <a asp-controller="PlacementDashboard"
+                           asp-action="Index"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ★
+                            </span>
+
+                            <span>
+                                Placements
+                            </span>
+
+                        </a>
+                    }
+
+
+                    <!-- ==================================================
+                     ADMIN NAVIGATION
+                =================================================== -->
+                    @if (role == "Admin")
+                    {
+                        <div class="sidebar-section-title">
+                            Administration
+                        </div>
+
+                        <a asp-controller="AdminDashboard"
+                           asp-action="Users"
+                           class="sidebar-link
+                            @IsActive(
+                               "AdminDashboard",
+                               "Users")">
+
+                            <span class="sidebar-link-icon">
+                                ◎
+                            </span>
+
+                            <span>
+                                User Management
+                            </span>
+
+                        </a>
+                    }
+
+                </div>
+
+
+                <!-- LOGOUT -->
+
+                <div class="px-3 pb-4 mt-3">
+
+                    <div style="
+                        border-top:
+                        1px solid
+                        rgba(255,255,255,0.08);
+                        padding-top: 1rem;
+                        ">
+
+                        <a asp-controller="Account"
+                           asp-action="Logout"
+                           class="sidebar-link">
+
+                            <span class="sidebar-link-icon">
+                                ↪
+                            </span>
+
+                            <span>
+                                Logout
+                            </span>
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            <!-- ==================================================
+             MAIN APPLICATION AREA
+        =================================================== -->
+
+            <div class="smartplace-main">
+
+
+                <!-- TOPBAR -->
+
+                <header class="smartplace-topbar">
+
+                    <div class="topbar-left">
+
+                        <button type="button"
+                                id="sidebarToggle"
+                                class="btn btn-outline-secondary
+                            sidebar-toggle">
+
+                            ☰
+
+                        </button>
+
+
+                        <div>
+
+                            <div class="fw-bold">
+                                @ViewData["Title"]
+                            </div>
+
+                            <div class="small text-muted">
+                                SmartPlace
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="topbar-right">
+
+                        <div class="topbar-user">
+
+                            <div class="topbar-avatar">
+                                @GetInitials()
+                            </div>
+
+                            <div class="d-none d-sm-block">
+
+                                <div class="topbar-user-name">
+                                    @(string.IsNullOrWhiteSpace(name)
+                                        ? "User"
+                                        : name)
+                                </div>
+
+                                <div class="topbar-user-role">
+                                    @(role == "PlacementOfficer"
+                                        ? "Placement Officer"
+                                        : role)
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="dropdown">
+
+                            <button class="
+                                btn
+                                btn-sm
+                                btn-outline-secondary
+                                dropdown-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown">
+
+                                Account
+
+                            </button>
+
+
+                            <ul class="dropdown-menu
+                                dropdown-menu-end
+                                shadow-sm
+                                border-0">
+
+                                <li>
+
+                                    <div class="px-3 py-2">
+
+                                        <div class="fw-semibold">
+                                            @name
+                                        </div>
+
+                                        <small class="text-muted">
+                                            @role
+                                        </small>
+
+                                    </div>
+
+                                </li>
+
+                                <li>
+                                    <hr class="dropdown-divider" />
+                                </li>
+
+                                @if (role == "Student")
+                                {
+                                    <li>
+
+                                        <a class="dropdown-item"
+                                           asp-controller="StudentDashboard"
+                                           asp-action="Profile">
+
+                                            Academic Profile
+
+                                        </a>
+
+                                    </li>
+                                }
+
+                                <li>
+
+                                    <a class="dropdown-item
+                                        text-danger"
+                                       asp-controller="Account"
+                                       asp-action="Logout">
+
+                                        Logout
+
+                                    </a>
+
+                                </li>
+
+                            </ul>
+
+                        </div>
+
+                    </div>
+
+                </header>
+
+
+                <!-- ==================================================
+                 PAGE CONTENT
+            =================================================== -->
+
+                <main class="smartplace-content">
+
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert
+                            alert-success
+                            alert-dismissible
+                            fade
+                            show
+                            shadow-sm"
+                             role="alert">
+
+                            <strong>Success.</strong>
+
+                            @TempData["Success"]
+
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="alert">
+                            </button>
+
+                        </div>
+                    }
+
+
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert
+                            alert-danger
+                            alert-dismissible
+                            fade
+                            show
+                            shadow-sm"
+                             role="alert">
+
+                            <strong>Error.</strong>
+
+                            @TempData["Error"]
+
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="alert">
+                            </button>
+
+                        </div>
+                    }
+
+
+                    @RenderBody()
+
+                </main>
+
+
+                <!-- FOOTER -->
+
+                <footer class="smartplace-footer">
+
+                    <div class="
+                        d-flex
+                        flex-column
+                        flex-md-row
+                        justify-content-between
+                        align-items-md-center
+                        gap-2">
+
+                        <div>
+                            &copy; 2026 SmartPlace
+                        </div>
+
+                        <div>
+                            AI-Powered College Placement
+                            Management System
+                        </div>
+
+                    </div>
+
+                </footer>
+
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <!-- ==================================================
+         PUBLIC / LOGIN / REGISTER LAYOUT
+    =================================================== -->
+
+        <header>
+
+            <nav class="
+                navbar
+                navbar-expand-lg
+                navbar-light
+                bg-white
+                border-bottom">
+
+                <div class="container">
+
+                    <a class="
+                        navbar-brand
+                        fw-bold
+                        d-flex
+                        align-items-center
+                        gap-2"
+                       asp-controller="Home"
+                       asp-action="Index">
+
+                        <span style="
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 10px;
+                            background:
+                            linear-gradient(
+                            135deg,
+                            #2563eb,
+                            #7c3aed
+                            );
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            color: white;
+                            font-size: 0.85rem;
+                            ">
+                            SP
+                        </span>
+
+                        SmartPlace
+
+                    </a>
+
+
+                    <button class="navbar-toggler"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#publicNavigation"
+                            aria-controls="publicNavigation"
+                            aria-expanded="false"
+                            aria-label="Toggle navigation">
+
+                        <span class="navbar-toggler-icon">
+                        </span>
+
+                    </button>
+
+
+                    <div id="publicNavigation"
+                         class="collapse navbar-collapse">
+
+                        <ul class="navbar-nav ms-auto
+                            align-items-lg-center
+                            gap-lg-2">
 
                             <li class="nav-item">
 
                                 <a class="nav-link"
                                    asp-controller="Account"
                                    asp-action="Login">
+
                                     Login
+
                                 </a>
 
                             </li>
 
+
                             <li class="nav-item">
 
-                                <a class="nav-link"
+                                <a class="btn btn-primary"
                                    asp-controller="Account"
                                    asp-action="Register">
-                                    Register
+
+                                    Create Account
+
                                 </a>
 
                             </li>
 
                         </ul>
-                    }
+
+                    </div>
+
+                </div>
+
+            </nav>
+
+        </header>
+
+
+        <main>
+
+            @if (TempData["Success"] != null)
+            {
+                <div class="container pt-3">
+
+                    <div class="alert
+                        alert-success
+                        alert-dismissible
+                        fade
+                        show">
+
+                        @TempData["Success"]
+
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert">
+                        </button>
+
+                    </div>
+
+                </div>
+            }
+
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="container pt-3">
+
+                    <div class="alert
+                        alert-danger
+                        alert-dismissible
+                        fade
+                        show">
+
+                        @TempData["Error"]
+
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert">
+                        </button>
+
+                    </div>
+
+                </div>
+            }
+
+
+            @RenderBody()
+
+        </main>
+
+
+        <footer class="smartplace-footer mt-5">
+
+            <div class="container">
+
+                <div class="
+                    d-flex
+                    flex-column
+                    flex-md-row
+                    justify-content-between
+                    gap-2">
+
+                    <div>
+                        &copy; 2026 SmartPlace
+                    </div>
+
+                    <div>
+                        AI-Powered College Placement
+                        Management System
+                    </div>
 
                 </div>
 
             </div>
 
-        </nav>
-
-    </header>
-
-
-    <main class="container py-3">
-
-        @RenderBody()
-
-    </main>
+        </footer>
+    }
 
 
-    <footer class="border-top text-muted mt-5">
-
-        <div class="container py-3">
-
-            &copy; 2026 SmartPlace ·
-            AI-Powered College Placement Management System
-
-        </div>
-
-    </footer>
-
+    <!-- ==================================================
+     SCRIPTS
+=================================================== -->
 
     <script src="~/lib/jquery/dist/jquery.min.js">
     </script>
@@ -255,9 +988,71 @@
             asp-append-version="true">
     </script>
 
+
+    <script>
+
+            document.addEventListener(
+                "DOMContentLoaded",
+                function() {
+
+                    const sidebar =
+                        document.getElementById(
+                            "smartplaceSidebar"
+                        );
+
+                    const toggle =
+                        document.getElementById(
+                            "sidebarToggle"
+                        );
+
+                    if (sidebar && toggle) {
+
+                        toggle.addEventListener(
+                            "click",
+                            function() {
+
+                                sidebar.classList.toggle(
+                                    "show"
+                                );
+
+                            }
+                        );
+
+                    }
+
+
+                    document.addEventListener(
+                        "click",
+                        function(event) {
+
+                            if (
+                                window.innerWidth <= 991 &&
+                                sidebar &&
+                                sidebar.classList.contains("show") &&
+                                !sidebar.contains(event.target) &&
+                                toggle &&
+                                !toggle.contains(event.target)
+                            ) {
+
+                                sidebar.classList.remove(
+                                    "show"
+                                );
+
+                            }
+
+                        }
+                    );
+
+                }
+            );
+
+    </script>
+
+
     @await RenderSectionAsync(
         "Scripts",
         required: false)
+
 
 </body>
 

@@ -4,116 +4,149 @@
     ViewData["Title"] = "Login";
 }
 
-<div class="container py-5">
+<div class="auth-page">
 
-    <div class="row justify-content-center">
+    <div class="auth-container"
+         style="
+        max-width: 620px;
+        margin: 0 auto;
+        ">
 
-        <div class="col-md-6 col-lg-5">
+        <div class="auth-shell">
 
-            <div class="card border-0 shadow-sm">
+            <div class="auth-form-panel"
+                 style="min-height: auto;">
 
-                <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
 
-                    <div class="text-center mb-4">
+                    <div class="auth-logo mx-auto mb-3">
+                        SP
+                    </div>
 
-                        <h2 class="fw-bold">
-                            Welcome Back
-                        </h2>
+                    <div class="auth-eyebrow text-primary mb-2">
+                        Welcome Back
+                    </div>
 
-                        <p class="text-muted mb-0">
-                            Sign in to your SmartPlace account.
-                        </p>
+                    <h2 class="fw-bold mb-2">
+                        Sign in to SmartPlace
+                    </h2>
 
+                    <p class="text-muted mb-0">
+                        Enter your credentials to continue
+                        to your placement dashboard.
+                    </p>
+
+                </div>
+
+
+                @if (TempData["Success"] != null)
+                {
+                    <div class="alert alert-success">
+                        @TempData["Success"]
+                    </div>
+                }
+
+
+                @if (ViewBag.Error != null)
+                {
+                    <div class="alert alert-danger">
+                        @ViewBag.Error
+                    </div>
+                }
+
+
+                <form asp-controller="Account"
+                      asp-action="Login"
+                      method="post">
+
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3">
                     </div>
 
 
-                    @if (TempData["Success"] != null)
-                    {
-                        <div class="alert alert-success">
-                            @TempData["Success"]
-                        </div>
-                    }
+                    <div class="mb-3">
 
+                        <label asp-for="Email"
+                               class="form-label fw-semibold">
+                            Email Address
+                        </label>
 
-                    @if (ViewBag.Error != null)
-                    {
-                        <div class="alert alert-danger">
-                            @ViewBag.Error
-                        </div>
-                    }
+                        <input asp-for="Email"
+                               type="email"
+                               class="form-control form-control-lg"
+                               autocomplete="email"
+                               placeholder="name@example.com"
+                               required />
 
-
-                    <form asp-controller="Account"
-                          asp-action="Login"
-                          method="post">
-
-                        <div asp-validation-summary="ModelOnly"
-                             class="text-danger mb-3">
-                        </div>
-
-
-                        <div class="mb-3">
-
-                            <label asp-for="Email"
-                                   class="form-label">
-                                Email Address
-                            </label>
-
-                            <input asp-for="Email"
-                                   type="email"
-                                   class="form-control"
-                                   autocomplete="email"
-                                   placeholder="name@example.com"
-                                   required />
-
-                            <span asp-validation-for="Email"
-                                  class="text-danger">
-                            </span>
-
-                        </div>
-
-
-                        <div class="mb-4">
-
-                            <label asp-for="Password"
-                                   class="form-label">
-                                Password
-                            </label>
-
-                            <input asp-for="Password"
-                                   type="password"
-                                   class="form-control"
-                                   autocomplete="current-password"
-                                   required />
-
-                            <span asp-validation-for="Password"
-                                  class="text-danger">
-                            </span>
-
-                        </div>
-
-
-                        <button type="submit"
-                                class="btn btn-primary w-100 py-2">
-                            Login
-                        </button>
-
-                    </form>
-
-
-                    <div class="text-center mt-4">
-
-                        <span class="text-muted">
-                            Don't have an account?
+                        <span asp-validation-for="Email"
+                              class="text-danger small">
                         </span>
 
-                        <a asp-controller="Account"
-                           asp-action="Register"
-                           class="text-decoration-none">
-                            Register
-                        </a>
+                    </div>
+
+
+                    <div class="mb-4">
+
+                        <label asp-for="Password"
+                               class="form-label fw-semibold">
+                            Password
+                        </label>
+
+                        <input asp-for="Password"
+                               type="password"
+                               class="form-control form-control-lg"
+                               autocomplete="current-password"
+                               placeholder="Enter your password"
+                               required />
+
+                        <span asp-validation-for="Password"
+                              class="text-danger small">
+                        </span>
 
                     </div>
+
+
+                    <button type="submit"
+                            class="btn btn-primary
+                        btn-lg
+                        w-100
+                        auth-submit-btn">
+
+                        Sign In
+
+                    </button>
+
+                </form>
+
+
+                <div class="auth-divider">
+
+                    <span>
+                        New to SmartPlace?
+                    </span>
+
+                </div>
+
+
+                <a asp-controller="Account"
+                   asp-action="Register"
+                   class="btn
+                    btn-outline-primary
+                    btn-lg
+                    w-100">
+
+                    Create an Account
+
+                </a>
+
+
+                <div class="text-center mt-4">
+
+                    <small class="text-muted">
+                        Secure access for Students,
+                        Recruiters, Placement Officers
+                        and Administrators.
+                    </small>
 
                 </div>
 
@@ -124,6 +157,7 @@
     </div>
 
 </div>
+
 
 @section Scripts
 {

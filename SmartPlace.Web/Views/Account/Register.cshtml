@@ -4,159 +4,117 @@
     ViewData["Title"] = "Register";
 }
 
-<div class="container py-5">
+<div class="auth-page">
 
-    <div class="row justify-content-center">
+    <div class="auth-container"
+         style="
+        max-width: 720px;
+        margin: 0 auto;
+        ">
 
-        <div class="col-md-7 col-lg-6">
+        <div class="auth-shell">
 
-            <div class="card border-0 shadow-sm">
+            <div class="auth-form-panel
+                auth-register-panel"
+                 style="min-height: auto;">
 
-                <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
 
-                    <div class="text-center mb-4">
+                    <div class="auth-logo mx-auto mb-3">
+                        SP
+                    </div>
 
-                        <h2 class="fw-bold">
-                            Create Account
-                        </h2>
+                    <div class="auth-eyebrow text-primary mb-2">
+                        Get Started
+                    </div>
 
-                        <p class="text-muted mb-0">
-                            Join SmartPlace as a student
-                            or recruiter.
-                        </p>
+                    <h2 class="fw-bold mb-2">
+                        Create your account
+                    </h2>
 
+                    <p class="text-muted mb-0">
+                        Register as a student or recruiter
+                        to get started with SmartPlace.
+                    </p>
+
+                </div>
+
+
+                @if (ViewBag.Error != null)
+                {
+                    <div class="alert alert-danger">
+                        @ViewBag.Error
+                    </div>
+                }
+
+
+                <form asp-controller="Account"
+                      asp-action="Register"
+                      method="post">
+
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3">
                     </div>
 
 
-                    @if (ViewBag.Error != null)
-                    {
-                        <div class="alert alert-danger">
-                            @ViewBag.Error
-                        </div>
-                    }
+                    <div class="row g-3">
 
+                        <!-- FULL NAME -->
 
-                    <form asp-controller="Account"
-                          asp-action="Register"
-                          method="post">
-
-                        <div asp-validation-summary="ModelOnly"
-                             class="text-danger mb-3">
-                        </div>
-
-
-                        <div class="mb-3">
+                        <div class="col-12">
 
                             <label asp-for="FullName"
-                                   class="form-label">
+                                   class="form-label fw-semibold">
                                 Full Name
                             </label>
 
                             <input asp-for="FullName"
-                                   class="form-control"
+                                   class="form-control form-control-lg"
                                    autocomplete="name"
                                    placeholder="Enter your full name"
                                    required />
 
                             <span asp-validation-for="FullName"
-                                  class="text-danger">
+                                  class="text-danger small">
                             </span>
 
                         </div>
 
 
-                        <div class="mb-3">
+                        <!-- EMAIL -->
+
+                        <div class="col-12">
 
                             <label asp-for="Email"
-                                   class="form-label">
+                                   class="form-label fw-semibold">
                                 Email Address
                             </label>
 
                             <input asp-for="Email"
                                    type="email"
-                                   class="form-control"
+                                   class="form-control form-control-lg"
                                    autocomplete="email"
                                    placeholder="name@example.com"
                                    required />
 
                             <span asp-validation-for="Email"
-                                  class="text-danger">
+                                  class="text-danger small">
                             </span>
 
                         </div>
 
 
-                        <div class="mb-3">
+                        <!-- ROLE -->
 
-                            <label asp-for="Password"
-                                   class="form-label">
-                                Password
-                            </label>
-
-                            <input asp-for="Password"
-                                   type="password"
-                                   class="form-control"
-                                   autocomplete="new-password"
-                                   minlength="6"
-                                   required />
-
-                            <span asp-validation-for="Password"
-                                  class="text-danger">
-                            </span>
-
-
-                            <div class="card bg-light border-0 mt-3">
-
-                                <div class="card-body py-3">
-
-                                    <div class="fw-semibold small mb-2">
-                                        Password must contain:
-                                    </div>
-
-                                    <div class="small text-muted">
-
-                                        <div>
-                                            ✓ At least 6 characters
-                                        </div>
-
-                                        <div>
-                                            ✓ At least one uppercase letter
-                                        </div>
-
-                                        <div>
-                                            ✓ At least one lowercase letter
-                                        </div>
-
-                                        <div>
-                                            ✓ At least one number
-                                        </div>
-
-                                        <div>
-                                            ✓ At least one special character
-                                            such as
-                                            <strong>
-                                                ! @@ # $ % ^ & *
-                                            </strong>
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        <div class="mb-4">
+                        <div class="col-12">
 
                             <label asp-for="Role"
-                                   class="form-label">
+                                   class="form-label fw-semibold">
                                 Register As
                             </label>
 
                             <select asp-for="Role"
-                                    class="form-select"
+                                    class="form-select form-select-lg"
                                     required>
 
                                 <option value="">
@@ -174,38 +132,141 @@
                             </select>
 
                             <span asp-validation-for="Role"
-                                  class="text-danger">
+                                  class="text-danger small">
                             </span>
 
                             <div class="form-text">
-                                Admin and Placement Officer accounts
-                                are managed by SmartPlace.
+                                Admin and Placement Officer
+                                accounts are managed internally
+                                by SmartPlace.
                             </div>
 
                         </div>
 
 
-                        <button type="submit"
-                                class="btn btn-primary w-100 py-2">
-                            Create Account
-                        </button>
+                        <!-- PASSWORD -->
 
-                    </form>
+                        <div class="col-12">
 
+                            <label asp-for="Password"
+                                   class="form-label fw-semibold">
+                                Password
+                            </label>
 
-                    <div class="text-center mt-4">
+                            <input asp-for="Password"
+                                   type="password"
+                                   class="form-control form-control-lg"
+                                   autocomplete="new-password"
+                                   minlength="6"
+                                   placeholder="Create a strong password"
+                                   required />
 
-                        <span class="text-muted">
-                            Already have an account?
-                        </span>
+                            <span asp-validation-for="Password"
+                                  class="text-danger small">
+                            </span>
 
-                        <a asp-controller="Account"
-                           asp-action="Login"
-                           class="text-decoration-none">
-                            Login
-                        </a>
+                        </div>
 
                     </div>
+
+
+                    <!-- PASSWORD RULES -->
+
+                    <div class="password-requirements mt-3">
+
+                        <div class="fw-semibold mb-2">
+                            Password requirements
+                        </div>
+
+                        <div class="row g-2 small">
+
+                            <div class="col-sm-6">
+
+                                <span class="requirement-check">
+                                    ✓
+                                </span>
+
+                                Minimum 6 characters
+
+                            </div>
+
+                            <div class="col-sm-6">
+
+                                <span class="requirement-check">
+                                    ✓
+                                </span>
+
+                                Uppercase letter
+
+                            </div>
+
+                            <div class="col-sm-6">
+
+                                <span class="requirement-check">
+                                    ✓
+                                </span>
+
+                                Lowercase letter
+
+                            </div>
+
+                            <div class="col-sm-6">
+
+                                <span class="requirement-check">
+                                    ✓
+                                </span>
+
+                                At least one number
+
+                            </div>
+
+                            <div class="col-12">
+
+                                <span class="requirement-check">
+                                    ✓
+                                </span>
+
+                                Special character such as
+
+                                <strong>
+                                    ! @@ # $ % ^ & *
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <button type="submit"
+                            class="btn
+                        btn-primary
+                        btn-lg
+                        w-100
+                        auth-submit-btn
+                        mt-4">
+
+                        Create Account
+
+                    </button>
+
+                </form>
+
+
+                <div class="text-center mt-4">
+
+                    <span class="text-muted">
+                        Already have an account?
+                    </span>
+
+                    <a asp-controller="Account"
+                       asp-action="Login"
+                       class="fw-semibold">
+
+                        Sign In
+
+                    </a>
 
                 </div>
 
@@ -216,6 +277,7 @@
     </div>
 
 </div>
+
 
 @section Scripts
 {

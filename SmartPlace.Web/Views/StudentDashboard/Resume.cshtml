@@ -2,6 +2,16 @@
 
 @{
     ViewData["Title"] = "Resume & Skills";
+
+    string? uploadedDateText = null;
+
+    if (Model.Resume != null)
+    {
+        uploadedDateText =
+            Model.Resume.UploadedAt
+                .ToLocalTime()
+                .ToString("dd MMM yyyy, hh:mm tt");
+    }
 }
 
 <div class="container py-4">
@@ -9,6 +19,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
+
             <h2 class="fw-bold mb-1">
                 Resume & AI Skills
             </h2>
@@ -17,6 +28,7 @@
                 Upload your PDF resume and let SmartPlace
                 detect your technical skills automatically.
             </p>
+
         </div>
 
         <a asp-controller="StudentDashboard"
@@ -55,6 +67,7 @@
                         Upload Resume
                     </h5>
 
+
                     <form asp-controller="StudentDashboard"
                           asp-action="UploadResume"
                           method="post"
@@ -78,6 +91,7 @@
 
                         </div>
 
+
                         <button type="submit"
                                 class="btn btn-primary">
                             Upload Resume
@@ -90,24 +104,38 @@
                     {
                         <hr class="my-4" />
 
-                        <h6 class="fw-bold">
+                        <h6 class="fw-bold mb-3">
                             Current Resume
                         </h6>
 
-                        <p class="mb-1">
-                            <strong>File:</strong>
+
+                        <p class="mb-2">
+
+                            <strong>
+                                File:
+                            </strong>
+
                             @Model.Resume.FileName
+
                         </p>
 
-                        <p class="mb-1">
-                            <strong>Uploaded:</strong>
-                            @Model.Resume.UploadedAt
-                            .ToLocalTime()
-                            .ToString("dd MMM yyyy, hh:mm tt")
+
+                        <p class="mb-2">
+
+                            <strong>
+                                Uploaded:
+                            </strong>
+
+                            @uploadedDateText
+
                         </p>
+
 
                         <p class="mb-3">
-                            <strong>Processed:</strong>
+
+                            <strong>
+                                Processed:
+                            </strong>
 
                             @if (Model.Resume.IsProcessed)
                             {
@@ -121,7 +149,9 @@
                                     No
                                 </span>
                             }
+
                         </p>
+
 
                         <form asp-controller="StudentDashboard"
                               asp-action="ExtractSkills"
@@ -155,12 +185,14 @@
                         </h5>
 
                         <span class="badge bg-primary">
-                            @Model.Skills.Count
+                            @(Model.Skills?.Count ?? 0)
                         </span>
 
                     </div>
 
-                    @if (Model.Skills.Count > 0)
+
+                    @if (Model.Skills != null &&
+                         Model.Skills.Count > 0)
                     {
                         <div class="d-flex flex-wrap gap-2">
 
@@ -181,7 +213,7 @@
                                 No skills detected yet
                             </h6>
 
-                            <p class="text-muted small">
+                            <p class="text-muted small mb-0">
                                 Upload your resume and run
                                 AI skill extraction.
                             </p>
